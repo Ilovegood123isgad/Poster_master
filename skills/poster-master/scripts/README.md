@@ -90,8 +90,11 @@ output to make it pass.
 ## QR codes
 
 ```bash
-python "${SKILL_DIR}/scripts/qr_extract.py" decode "<screenshot.png>"
-python "${SKILL_DIR}/scripts/qr_extract.py" generate --url "<confirmed-link>" --output assets/qr.png --size 600
+# 从截图里读码，并与客户给的链接逐字符比对
+python "${SKILL_DIR}/scripts/qr_extract.py" --input "<screenshot.png>" --expect "<客户确认的链接>"
+
+# 从确认过的链接重新生成一张干净的码
+python "${SKILL_DIR}/scripts/qr_extract.py" --generate "<confirmed-link>" --output assets/qr.png --size 600
 ```
 
 Decode first, compare character by character with the link the client wrote down, and

@@ -246,8 +246,7 @@ def check(
         else:
             reference = Image.open(compare).convert("RGBA")
             sample = composite.convert("RGBA")
-            if sample.size != reference.size:
-                sample = sample.resize(reference.size, Image.LANCZOS)
+            same_size = sample.size == reference.size
             scale = min(1.0, 900 / max(1, reference.size[0]))
             target = (
                 max(1, int(reference.size[0] * scale)),
@@ -258,14 +257,27 @@ def check(
             diff = np.abs(left - right)
             worst = int(diff.max())
             mean = float(diff.mean())
-            if worst > 12:
+            # Absolute max is the wrong gate: comparing a design-size PSD with a
+            # print-size render means every glyph edge lands on a different
+            # subpixel, and a handful of pixels differ by 200 while the artwork
+            # is obviously identical. A wrong layer order, on the other hand,
+            # changes whole regions, which moves the mean and the share of
+            # heavily-different pixels — so gate on those two.
+            heavy = float(np.percentile(diff, 99.0))
+            heavy_share = float((diff > 24).mean() * 100)
+            detail = (
+                f"最大差 {worst}，平均差 {mean:.2f}，p99 {heavy:.0f}，"
+                f"差异>24 的像素 {heavy_share:.2f}%"
+                + ("（同尺寸比对）" if same_size else "（跨尺寸比对，边缘差异属正常）")
+            )
+            if mean > 2.5 or heavy_share > 3.0:
                 report.add(
                     FAIL,
-                    f"合成结果与参考图不一致：最大差 {worst}，平均差 {mean:.2f}"
-                    "（图层顺序或透明度有问题）",
+                    f"合成结果与参考图不一致：{detail}"
+                    "——先查图层顺序与透明度，再查是否漏了图层",
                 )
             else:
-                report.add(OK, f"合成结果与参考一致：最大差 {worst}，平均差 {mean:.2f}")
+                report.add(OK, f"合成结果与参考一致：{detail}")
 
 
 def main() -> None:
