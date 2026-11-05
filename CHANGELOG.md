@@ -6,6 +6,20 @@
 技能包版本的真源是 `skills/poster-master/SKILL.md` 的 `metadata.version`；
 `.claude-plugin/marketplace.json` 与压缩包文件名必须与它一致，`tools/check_links.py` 会强制校验。
 
+## 未发布
+
+仓库基础设施与打包一致性，不改变技能包的行为，因此不升版本号。
+
+- **CI**：`.github/workflows/ci.yml` 在 Ubuntu 与 Windows 上跑结构校验、链接与版本一致性、
+  压缩包一致性、示例工程回归（重建 → 渲染 → 交付检查 → SVG 转曲）以及 `tests/run_all.py`。
+- **仓库内回归测试**：`tests/` 收进 5 个可移植测试（PSD 往返、编辑器链路、渲染、SVG 转曲、
+  生图），全部离线、秒级、不含客户素材。此前测试都在仓库外，CI 看不到，等于没有闸门。
+- **`tools/check_archive.py`**：校验 `dist` 压缩包与技能源码树一致。不用「重建后 `git diff`」，
+  因为 zip 记录每个条目的修改时间，重建必然产生不同字节流。
+- **打包统一换行**：`tools/package_skill.py` 在打包与同步时把文本类文件规范成 LF。此前压缩包
+  会带上打包机器的换行符，同一个 commit 在 Windows 与 Linux 打出的包内容不同。
+- `tools/make_release.py` 增加 `--update-body` 与 `--replace-asset`。
+
 ## v1.1.0 — 2026-11-05
 
 这一版的主题是**让交付件可信**。v1.0.0 能产出文件，但其中一个分层 PSD 实际上是不可用的，

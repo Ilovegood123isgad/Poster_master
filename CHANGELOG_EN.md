@@ -6,6 +6,26 @@ fix bumps patch. The single source of truth for the version is `metadata.version
 `skills/poster-master/SKILL.md`; `.claude-plugin/marketplace.json` and the archive file
 name must match it, and `tools/check_links.py` enforces that.
 
+## Unreleased
+
+Repository infrastructure and packaging consistency. No change to skill behaviour, so no
+version bump.
+
+- **CI**: `.github/workflows/ci.yml` runs on Ubuntu and Windows — package validation, link and
+  version consistency, archive consistency, the example regression (rebuild → render → delivery
+  check → outlined SVG), and `tests/run_all.py`.
+- **Tests in the repository**: `tests/` now holds five portable suites (PSD round-trip, editor
+  pipeline, rendering, SVG outlining, image generation). All offline, all fast, none of them
+  containing client material. They previously lived outside the repository, where CI could not
+  see them — which is the same as having no gate.
+- **`tools/check_archive.py`**: verifies that the `dist` archive matches the skill tree. It does
+  not rebuild and diff, because a zip stores each entry's modification time and a rebuild always
+  produces different bytes.
+- **Packaging normalises line endings**: `tools/package_skill.py` writes text as LF. Previously
+  the archive carried whatever line endings the packager's machine had, so one commit produced
+  different archives on Windows and Linux.
+- `tools/make_release.py` gains `--update-body` and `--replace-asset`.
+
 ## v1.1.0 — 2026-11-05
 
 This release is about **making the delivered files trustworthy**. v1.0.0 produced files,
