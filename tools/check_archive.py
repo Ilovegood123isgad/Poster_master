@@ -31,6 +31,25 @@ DIST = REPO / "dist"
 SKIP_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache", "node_modules"}
 SKIP_SUFFIXES = {".pyc", ".pyo"}
 
+# Must match tools/package_skill.py: text is normalised to LF before packing, so
+# the comparison is about content, not about the line endings the packager's
+# machine happened to have.
+TEXT_SUFFIXES = {
+    ".md", ".py", ".js", ".json", ".yaml", ".yml", ".txt", ".css", ".html",
+    ".gitignore", ".gitattributes", ".cfg", ".ini", ".toml",
+}
+
+
+def is_text(path: Path) -> bool:
+    return path.suffix.lower() in TEXT_SUFFIXES or path.name in {".gitignore", ".gitattributes"}
+
+
+def read_normalised(path: Path) -> bytes:
+    data = path.read_bytes()
+    if is_text(path):
+        data = data.replace(b"\r\n", b"\n")
+    return data
+
 
 def skill_version() -> str:
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
@@ -89,7 +108,7 @@ def main() -> None:
             if name not in present:
                 continue
             packed = handle.read(name)
-            if packed != path.read_bytes():
+            if packed != read_normalised(path):
                 stale += 1
                 if stale <= 20:
                     problems.append(f"内容不一致：{name}")

@@ -23,6 +23,27 @@ from pathlib import Path
 SKIP_NAMES = {"__pycache__", ".DS_Store", ".pytest_cache", "node_modules"}
 SKIP_SUFFIXES = {".pyc", ".pyo"}
 
+# Text is normalised to LF before it goes into the archive. Otherwise the zip
+# carries whatever line endings the packager's working copy happened to have, so
+# the same commit produces different archives on Windows and on Linux — and a
+# content check like tools/check_archive.py fails for a reason that has nothing
+# to do with the code.
+TEXT_SUFFIXES = {
+    ".md", ".py", ".js", ".json", ".yaml", ".yml", ".txt", ".css", ".html",
+    ".gitignore", ".gitattributes", ".cfg", ".ini", ".toml",
+}
+
+
+def is_text(path: Path) -> bool:
+    return path.suffix.lower() in TEXT_SUFFIXES or path.name in {".gitignore", ".gitattributes"}
+
+
+def read_normalised(path: Path) -> bytes:
+    data = path.read_bytes()
+    if is_text(path):
+        data = data.replace(b"\r\n", b"\n")
+    return data
+
 
 def skill_version(skill_dir: Path) -> str:
     match = re.search(r'^\s*version:\s*"([^"]+)"', (skill_dir / "SKILL.md").read_text(encoding="utf-8"), re.M)
@@ -44,7 +65,9 @@ def copy_skill(source: Path, target: Path) -> int:
             destination.mkdir(parents=True, exist_ok=True)
         else:
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, destination)
+            # Same normalisation as the archive, so the repository copy and the
+            # shipped copy are byte-identical.
+            destination.write_bytes(read_normalised(path))
             copied += 1
     return copied
 
@@ -59,7 +82,10 @@ def build_zip(skill_dir: Path, output: Path) -> Path:
                 continue
             if any(part in SKIP_NAMES for part in path.parts) or path.suffix in SKIP_SUFFIXES:
                 continue
-            archive.write(path, path.relative_to(skill_dir.parent))
+            archive.writestr(
+                path.relative_to(skill_dir.parent).as_posix(),
+                read_normalised(path),
+            )
     return output
 
 

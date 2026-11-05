@@ -97,6 +97,8 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="只打印将要发布的内容")
     parser.add_argument("--update-body", action="store_true",
                         help="只把已有 Release 的说明同步成 CHANGELOG 的最新内容（改错别字、日期用）")
+    parser.add_argument("--replace-asset", action="store_true",
+                        help="同名附件已存在时先删除再上传（重打压缩包后用）")
     args = parser.parse_args()
 
     version = skill_version()
@@ -152,6 +154,21 @@ def main() -> None:
     upload_url = release.get("upload_url") or ""
     if not upload_url:
         sys.exit("Release 返回里没有 upload_url")
+
+    for existing in release.get("assets") or []:
+        if existing.get("name") != archive.name:
+            continue
+        if not args.replace_asset:
+            print(f"附件已存在：{existing.get('browser_download_url')}")
+            print("压缩包内容变了的话加 --replace-asset 覆盖它。")
+            return
+        status, _ = api(
+            "DELETE", f"{API}/repos/{OWNER}/{NAME}/releases/assets/{existing['id']}", token
+        )
+        if status not in (204, 200):
+            sys.exit(f"删除旧附件失败：{status}")
+        print(f"已删除旧附件：{archive.name}")
+
     base_upload = upload_url.split("{", 1)[0]
     asset_url = f"{base_upload}?name={archive.name}"
     status, asset = api("POST", asset_url, token, raw=archive.read_bytes(),
