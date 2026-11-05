@@ -6,7 +6,7 @@ fix bumps patch. The single source of truth for the version is `metadata.version
 `skills/poster-master/SKILL.md`; `.claude-plugin/marketplace.json` and the archive file
 name must match it, and `tools/check_links.py` enforces that.
 
-## v1.1.0 — 2026-11-06
+## v1.1.0 — 2026-11-05
 
 This release is about **making the delivered files trustworthy**. v1.0.0 produced files,
 but one of them — a layered PSD — was unusable, and the delivery check reported it as

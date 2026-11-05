@@ -95,6 +95,8 @@ def api(method: str, url: str, token: str, payload: dict | None = None,
 def main() -> None:
     parser = argparse.ArgumentParser(description="为当前版本创建 GitHub Release 并附上压缩包")
     parser.add_argument("--dry-run", action="store_true", help="只打印将要发布的内容")
+    parser.add_argument("--update-body", action="store_true",
+                        help="只把已有 Release 的说明同步成 CHANGELOG 的最新内容（改错别字、日期用）")
     args = parser.parse_args()
 
     version = skill_version()
@@ -115,6 +117,21 @@ def main() -> None:
         return
 
     token = git_token()
+
+    if args.update_body:
+        status, release = api("GET", f"{API}/repos/{OWNER}/{NAME}/releases/tags/{tag}", token)
+        if status != 200:
+            sys.exit(f"读不到 Release {tag}：{status} {release.get('error') or release}")
+        release_id = release.get("id")
+        status, updated = api(
+            "PATCH", f"{API}/repos/{OWNER}/{NAME}/releases/{release_id}", token,
+            {"body": body, "name": f"poster-master {tag}"},
+        )
+        if status == 200:
+            print(f"Release 说明已更新：{updated.get('html_url')}（{len(body)} 字符）")
+        else:
+            sys.exit(f"更新失败：{status} {updated.get('error') or updated}")
+        return
 
     status, release = api(
         "POST", f"{API}/repos/{OWNER}/{NAME}/releases", token,

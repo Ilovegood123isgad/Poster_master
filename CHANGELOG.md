@@ -6,7 +6,7 @@
 技能包版本的真源是 `skills/poster-master/SKILL.md` 的 `metadata.version`；
 `.claude-plugin/marketplace.json` 与压缩包文件名必须与它一致，`tools/check_links.py` 会强制校验。
 
-## v1.1.0 — 2026-11-06
+## v1.1.0 — 2026-11-05
 
 这一版的主题是**让交付件可信**。v1.0.0 能产出文件，但其中一个分层 PSD 实际上是不可用的，
 而交付检查把它判成了通过。以下每一条都配了自动化验证。
