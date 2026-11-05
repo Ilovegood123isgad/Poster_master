@@ -6,16 +6,23 @@ composition work happens; it is not where direction is decided.
 ## Step 1 — Confirm the runtime
 
 ```bash
-node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>" [--port 41735]
+node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>"
 ```
 
-The server prints the URL it is listening on. It binds to 127.0.0.1 only; nothing is exposed
-to the network.
+`open.js` starts the server **detached**, waits until the port actually answers, and then
+prints the URL. Run it twice and it reuses the running instance instead of starting a second
+one; if the default port is taken it walks forward. Stop it with `--stop`.
+
+Do not start `server.js` directly. It is a foreground process: closing the terminal it lives
+in leaves the browser tab showing `ERR_CONNECTION_REFUSED`, which is the most common way this
+editor appears "broken". The runtime is fine; the server just is not running.
 
 - Requires Node.js 18 or newer. No `npm install` — the editor uses only the Node
   standard library.
 - If Node is unavailable, say so and fall back to `revise-poster.md` with direct
   source editing. Do not attempt a substitute runtime the user did not ask for.
+- To show the editor inside the DSH sidebar, point the chat's link preference at
+  "in-app sidebar" and click the printed URL — but only after `open.js` reports the address.
 
 ## Step 2 — Open the project
 

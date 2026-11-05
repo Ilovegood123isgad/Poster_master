@@ -128,8 +128,14 @@ Full stage procedure, artifacts, and templates:
 exports PNG, SVG, and a layered PSD.
 
 ```bash
-node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>" [--port 41735]
+node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>"
 ```
+
+Start it with `open.js`, never with `server.js`. `server.js` runs in the foreground and dies
+with its terminal, which leaves the browser showing `ERR_CONNECTION_REFUSED` — the editor then
+looks broken when nothing is wrong with it. `open.js` starts it detached, waits until the port
+answers, prints the URL, reuses an already-running instance, and moves to another port when the
+default is taken.
 
 It is a **tool, not a separate job**. Use it during Create and Revise as well as when the
 user asks for layered files. Its source format, element types, and limits:

@@ -37,12 +37,21 @@ passed.
 ## Editor
 
 ```bash
-node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>" [--port 41735]
+node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>"     # 启动或复用，然后打印地址
+node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>" --open   # 顺便用系统浏览器打开
+node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>" --stop   # 停止
 ```
 
-Opens the project at `http://127.0.0.1:41735/`. The server binds to loopback only. Its
-format, element types and limits are in `../references/editor-source-format.md`; its
-PSD export controls are in `../references/psd-layer-spec.md`.
+**用 `open.js`，不要直接起 `server.js`。** `server.js` 是前台进程，会占住终端；一旦那个窗口
+被关掉，浏览器里就只剩 `ERR_CONNECTION_REFUSED`——这是实际发生过的事故。`open.js` 把服务
+以脱离方式起在后台，**等到端口真的应答了才打印地址**，同一项目重复执行只复用、不再起第二个，
+端口被占时自动往后找。
+
+打开地址 `http://127.0.0.1:41735/`。服务只监听 loopback。源稿格式、元素类型与限制见
+`../references/editor-source-format.md`；PSD 导出粒度与 dpi 见 `../references/psd-layer-spec.md`。
+
+想在 DSH 的侧边栏里用：把聊天区的链接偏好设为「应用内侧边栏」，再点这个地址即可（DSH 内置的
+`ui-sidebar-browser` 会为它开一个 tab）。前提仍然是**服务已经在跑**。
 
 ## Render without a browser
 
