@@ -1,0 +1,26 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor and IDE state
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Node dependencies
+node_modules/
+
+# Local build output
+dist/*.zip
+!dist/poster-master-skill-*.zip
+
+# Client material and generated output never belong in this repository
+测试项目/
+exports/

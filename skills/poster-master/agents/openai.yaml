@@ -1,0 +1,5 @@
+interface:
+  display_name: "Poster Master"
+  short_description: "Design production-ready posters end to end"
+  brand_color: "#F2643C"
+  default_prompt: "Use $poster-master to design a poster from this brief and deliver PNG, SVG and layered PSD."

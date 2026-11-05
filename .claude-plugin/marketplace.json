@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "poster-master",
+  "owner": {
+    "name": "Ilovegood123isgad",
+    "url": "https://github.com/Ilovegood123isgad"
+  },
+  "metadata": {
+    "description": "Poster Master skill — turns a brief into a production-ready poster with an editable source and PNG / SVG / layered PSD delivery",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "poster-master",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Ilovegood123isgad/Poster_master.git",
+        "path": "skills"
+      },
+      "description": "Design a poster end to end: copy hierarchy, visual direction, artwork, a component-based editable source, and PNG / SVG / layered PSD delivery. Includes a dependency-free local editor. Install requirements.txt only when the Python scripts are needed.",
+      "author": {
+        "name": "Ilovegood123isgad",
+        "url": "https://github.com/Ilovegood123isgad"
+      },
+      "homepage": "https://github.com/Ilovegood123isgad/Poster_master",
+      "repository": "https://github.com/Ilovegood123isgad/Poster_master",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "poster",
+        "flyer",
+        "宣传海报",
+        "招新海报",
+        "活动海报",
+        "brand",
+        "design",
+        "ai",
+        "skill",
+        "print",
+        "psd",
+        "svg"
+      ]
+    }
+  ]
+}

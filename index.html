@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poster Master — 把一句需求变成可交付的海报</title>
+<meta name="description" content="Poster Master 是一个 Agent 技能包：把需求、客户素材和约束，变成可编辑的组件源稿与 PNG / SVG / 分层 PSD 交付物。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B1020'/%3E%3Crect x='14' y='12' width='36' height='40' rx='6' fill='%23F2643C'/%3E%3Crect x='20' y='20' width='24' height='4' rx='2' fill='%23fff'/%3E%3Crect x='20' y='29' width='16' height='4' rx='2' fill='%23fff' opacity='.75'/%3E%3Crect x='20' y='38' width='24' height='8' rx='3' fill='%230B1020' opacity='.35'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ink: #0B1020;
+    --ink-2: #141b31;
+    --line: #253052;
+    --paper: #F4F6FB;
+    --muted: #8E9ABF;
+    --coral: #F2643C;
+    --gold: #F5B335;
+    --radius: 18px;
+    --max: 1180px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.7;
+  }
+  a { color: inherit; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(14px);
+    background: rgba(11, 16, 32, .82);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; gap: 20px; height: 64px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .3px; }
+  .logo span.mark {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--coral); color: #1A0E0A; font-weight: 800;
+  }
+  nav { margin-left: auto; display: flex; gap: 22px; align-items: center; font-size: 14px; }
+  nav a { color: var(--muted); text-decoration: none; }
+  nav a:hover { color: var(--paper); }
+  .lang { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .lang button {
+    background: transparent; border: 0; color: var(--muted); cursor: pointer;
+    padding: 5px 12px; font-size: 13px; font-family: inherit;
+  }
+  .lang button.on { background: var(--coral); color: #1A0E0A; font-weight: 700; }
+  .hero { padding: 84px 0 64px; position: relative; overflow: hidden; }
+  .hero::after {
+    content: ""; position: absolute; right: -140px; top: -120px; width: 520px; height: 520px;
+    background: radial-gradient(circle, rgba(242,100,60,.28), transparent 62%); pointer-events: none;
+  }
+  .eyebrow {
+    display: inline-block; padding: 5px 14px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--gold); font-size: 13px; letter-spacing: 1px;
+  }
+  h1 { font-size: clamp(34px, 5.4vw, 60px); line-height: 1.16; margin: 22px 0 18px; max-width: 15em; }
+  h1 em { font-style: normal; color: var(--coral); }
+  .lead { font-size: clamp(16px, 2.1vw, 20px); color: var(--muted); max-width: 44em; margin: 0 0 32px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700;
+    padding: 13px 24px; border-radius: 999px; border: 1px solid var(--line); color: var(--paper);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); border-color: var(--muted); }
+  .btn.primary { background: var(--coral); border-color: var(--coral); color: #1A0E0A; }
+  .code {
+    font-family: "Cascadia Code", ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 2px 8px; font-size: .92em; color: var(--gold);
+  }
+  pre.code { display: block; padding: 16px 18px; overflow-x: auto; line-height: 1.6; color: var(--paper); }
+  pre.code .c { color: var(--muted); }
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  .shot {
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    background: var(--ink-2); box-shadow: 0 30px 70px rgba(0,0,0,.45);
+  }
+  .shot img { display: block; width: 100%; }
+  .shot figcaption { padding: 12px 16px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+  section { padding: 72px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(26px, 3.6vw, 38px); margin: 0 0 12px; }
+  .sub { color: var(--muted); max-width: 46em; margin: 0 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; transition: border-color .15s ease, transform .15s ease;
+  }
+  .card:hover { border-color: var(--coral); transform: translateY(-3px); }
+  .card h3 { margin: 0 0 8px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .num { color: var(--coral); font-weight: 800; font-size: 13px; letter-spacing: 1px; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  .step { border-left: 2px solid var(--line); padding: 4px 0 4px 16px; }
+  .step b { display: block; font-size: 15px; }
+  .step span { color: var(--muted); font-size: 13.5px; }
+  .install { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .install h3 { margin: 0 0 12px; font-size: 16px; }
+  .download { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; }
+  .qr { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: #fff; }
+  .qr img { display: block; width: 172px; height: 172px; }
+  .qr figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .6px; text-transform: uppercase; }
+  td code { color: var(--gold); font-size: 13.5px; }
+  footer { border-top: 1px solid var(--line); padding: 34px 0 46px; color: var(--muted); font-size: 14px; }
+  .foot { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .foot .right { margin-left: auto; }
+  a.gh { color: var(--paper); font-weight: 700; text-decoration: none; }
+  a.gh:hover { color: var(--coral); }
+  .hide { display: none !important; }
+  @media (max-width: 900px) {
+    .split { grid-template-columns: 1fr; gap: 34px; }
+    nav a { display: none; }
+    .hero { padding: 56px 0 44px; }
+    section { padding: 54px 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <div class="logo"><span class="mark">P</span> Poster Master</div>
+    <nav>
+      <a href="#why" data-i18n="navWhy">为什么</a>
+      <a href="#flow" data-i18n="navFlow">流程</a>
+      <a href="#install" data-i18n="navInstall">安装</a>
+      <a href="#download" data-i18n="navDownload">下载</a>
+      <a href="https://github.com/Ilovegood123isgad/Poster_master" class="gh">GitHub</a>
+      <div class="lang">
+        <button id="zh" class="on">中文</button>
+        <button id="en">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap hero">
+  <div class="split">
+    <div>
+      <span class="eyebrow">AGENT SKILL · v1.0.0 · MIT</span>
+      <h1 data-i18n="heroTitle">把一句需求和一堆客户素材，变成<em>可直接交付</em>的海报。</h1>
+      <p class="lead" data-i18n="heroLead">Poster Master 是一个 Agent 技能包：它接管做海报的全过程——文案层级、视觉方向、初稿迭代、组件源稿，以及 PNG / SVG / 分层 PSD 的交付与检查。</p>
+      <div class="cta">
+        <a class="btn primary" href="#install" data-i18n="ctaInstall">安装技能</a>
+        <a class="btn" href="https://github.com/Ilovegood123isgad/Poster_master" data-i18n="ctaRepo">查看仓库</a>
+      </div>
+      <p style="margin-top:26px;color:var(--muted);font-size:14px">
+        <span data-i18n="try">试试看：</span><span class="code">$poster-master 帮我做一张骑行社团招新海报，尺寸 A3，链接 https://example.com/join</span>
+      </p>
+    </div>
+    <figure class="shot" style="margin:0">
+      <img src="docs/assets/poster-master-preview.png" alt="Poster Master 示例输出：1080 × 1440 海报">
+      <figcaption data-i18n="shotCap">示例输出 · 由技能包自带的无头渲染器产出 · 1080 × 1440 · 二维码可解码</figcaption>
+    </figure>
+  </div>
+</div>
+
+<section id="why">
+  <div class="wrap">
+    <h2 data-i18n="whyTitle">海报交付里，最容易翻车的四件事</h2>
+    <p class="sub" data-i18n="whySub">它们都不是审美问题，而是可以被规则挡住的问题。</p>
+    <div class="grid">
+      <div class="card">
+        <div class="num">01</div>
+        <h3 data-i18n="w1t">文案事实不能猜</h3>
+        <p data-i18n="w1d">日期、价格、地点、报名链接未经确认就只能是待确认项，不能填一个看起来合理的值。</p>
+      </div>
+      <div class="card">
+        <div class="num">02</div>
+        <h3 data-i18n="w2t">二维码永远不重绘</h3>
+        <p data-i18n="w2d">解码原码 → 与确认链接逐字符比对 → 重新生成干净码 → 真机实测，缺一不可。</p>
+      </div>
+      <div class="card">
+        <div class="num">03</div>
+        <h3 data-i18n="w3t">印刷与社交是两个文件</h3>
+        <p data-i18n="w3d">同一张图不静默复用。尺寸、出血、色彩模式、文件格式按载体分别出。</p>
+      </div>
+      <div class="card">
+        <div class="num">04</div>
+        <h3 data-i18n="w4t">交付靠检查，不靠眼睛</h3>
+        <p data-i18n="w4d">脚本核对尺寸、色彩模式、文件完整性与二维码可解码性，并明确列出机器查不了的四件事。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="flow">
+  <div class="wrap">
+    <h2 data-i18n="flowTitle">六阶段，一条可回溯的流水线</h2>
+    <p class="sub" data-i18n="flowSub">阶段属于海报，不属于路由。改稿时从拥有这个改动的阶段重新进入。</p>
+    <div class="steps">
+      <div class="step"><b>1 · 目标</b><span data-i18n="f1">受众、主要效果、核心信息、成功标准</span></div>
+      <div class="step"><b>2 · 信息</b><span data-i18n="f2">带优先级标签的文案集、待确认问题</span></div>
+      <div class="step"><b>3 · 方向</b><span data-i18n="f3">视觉关键词、配色、字体、主视觉</span></div>
+      <div class="step"><b>4 · 初稿</b><span data-i18n="f4">至少一张实际尺寸可读的构图</span></div>
+      <div class="step"><b>5 · 迭代</b><span data-i18n="f5">带决策的版本化反馈记录</span></div>
+      <div class="step"><b>6 · 交付</b><span data-i18n="f6">分渠道 PNG / SVG / PSD + 交付检查</span></div>
+    </div>
+    <div class="grid" style="margin-top:34px">
+      <div class="card">
+        <h3 data-i18n="d1t">组件源稿</h3>
+        <p data-i18n="d1d">不是一张图，是一个 JSON：图层分组、每个元素的文字与位置。别人能接着改。</p>
+      </div>
+      <div class="card">
+        <h3 data-i18n="d2t">零依赖编辑器</h3>
+        <p data-i18n="d2d">纯 Node 标准库，本地起服务，画布改稿，导出 PNG / SVG / 分层 PSD。不用 npm install。</p>
+      </div>
+      <div class="card">
+        <h3 data-i18n="d3t">脚本化检查</h3>
+        <p data-i18n="d3d">脚手架、无头渲染、交付检查、PSD 写出、二维码提取与重生成、抠图边缘报告。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2 data-i18n="instTitle">装上就能用</h2>
+    <p class="sub" data-i18n="instSub">不需要改你的工作流，也不需要为每个 Agent 单独适配。</p>
+    <div class="install">
+      <div class="card">
+        <h3 data-i18n="i1t">Claude Code</h3>
+        <pre class="code">/plugin marketplace add Ilovegood123isgad/Poster_master
+/plugin install poster-master@poster-master</pre>
+      </div>
+      <div class="card">
+        <h3 data-i18n="i2t">Codex / 任意 Agent</h3>
+        <pre class="code">curl -LO https://github.com/Ilovegood123isgad/Poster_master/raw/main/dist/poster-master-skill-1.0.0.zip
+unzip poster-master-skill-1.0.0.zip -d ~/.codex/skills/</pre>
+      </div>
+      <div class="card">
+        <h3 data-i18n="i3t">Git 克隆</h3>
+        <pre class="code">git clone https://github.com/Ilovegood123isgad/Poster_master.git
+cp -R Poster_master/skills/poster-master ~/.codex/skills/</pre>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:15px;margin-top:24px" data-i18n="instNote">编辑器与项目脚手架零依赖；只有渲染、检查、PSD、二维码脚本需要 <span class="code">pip install -r requirements.txt</span>。</p>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2 data-i18n="dlTitle">下载与文档</h2>
+    <p class="sub" data-i18n="dlSub">压缩包内是完整的技能目录，解压即用。</p>
+    <div class="download">
+      <div>
+        <table>
+          <tbody>
+            <tr><td data-i18n="d1">技能包压缩包</td><td><a href="dist/poster-master-skill-1.0.0.zip">dist/poster-master-skill-1.0.0.zip</a></td></tr>
+            <tr><td data-i18n="d2">快速开始</td><td><a href="docs/getting-started.md">docs/getting-started.md</a></td></tr>
+            <tr><td data-i18n="d3">工作流详解</td><td><a href="docs/workflow.md">docs/workflow.md</a></td></tr>
+            <tr><td data-i18n="d4">编辑器说明</td><td><a href="docs/editor.md">docs/editor.md</a></td></tr>
+            <tr><td data-i18n="d5">常见问题</td><td><a href="docs/faq.md">docs/faq.md</a></td></tr>
+            <tr><td data-i18n="d6">English docs</td><td><a href="docs/en/README.md">docs/en/</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="qr" style="margin:0">
+        <img src="docs/assets/repo-qr.png" alt="Poster Master 仓库二维码">
+        <figcaption data-i18n="qrCap">扫码打开 GitHub 仓库</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>© 2026 Poster Master · MIT License</span>
+    <span class="right"><a class="gh" href="https://github.com/Ilovegood123isgad/Poster_master">github.com/Ilovegood123isgad/Poster_master</a></span>
+  </div>
+</footer>
+
+<script>
+  const I18N = {
+    zh: {
+      navWhy: "为什么", navFlow: "流程", navInstall: "安装", navDownload: "下载",
+      heroTitle: "把一句需求和一堆客户素材，变成<em>可直接交付</em>的海报。",
+      heroLead: "Poster Master 是一个 Agent 技能包：它接管做海报的全过程——文案层级、视觉方向、初稿迭代、组件源稿，以及 PNG / SVG / 分层 PSD 的交付与检查。",
+      ctaInstall: "安装技能", ctaRepo: "查看仓库",
+      try: "试试看：",
+      shotCap: "示例输出 · 由技能包自带的无头渲染器产出 · 1080 × 1440 · 二维码可解码",
+      whyTitle: "海报交付里，最容易翻车的四件事", whySub: "它们都不是审美问题，而是可以被规则挡住的问题。",
+      w1t: "文案事实不能猜", w1d: "日期、价格、地点、报名链接未经确认就只能是待确认项，不能填一个看起来合理的值。",
+      w2t: "二维码永远不重绘", w2d: "解码原码 → 与确认链接逐字符比对 → 重新生成干净码 → 真机实测，缺一不可。",
+      w3t: "印刷与社交是两个文件", w3d: "同一张图不静默复用。尺寸、出血、色彩模式、文件格式按载体分别出。",
+      w4t: "交付靠检查，不靠眼睛", w4d: "脚本核对尺寸、色彩模式、文件完整性与二维码可解码性，并明确列出机器查不了的四件事。",
+      flowTitle: "六阶段，一条可回溯的流水线", flowSub: "阶段属于海报，不属于路由。改稿时从拥有这个改动的阶段重新进入。",
+      f1: "受众、主要效果、核心信息、成功标准", f2: "带优先级标签的文案集、待确认问题",
+      f3: "视觉关键词、配色、字体、主视觉", f4: "至少一张实际尺寸可读的构图",
+      f5: "带决策的版本化反馈记录", f6: "分渠道 PNG / SVG / PSD + 交付检查",
+      d1t: "组件源稿", d1d: "不是一张图，是一个 JSON：图层分组、每个元素的文字与位置。别人能接着改。",
+      d2t: "零依赖编辑器", d2d: "纯 Node 标准库，本地起服务，画布改稿，导出 PNG / SVG / 分层 PSD。不用 npm install。",
+      d3t: "脚本化检查", d3d: "脚手架、无头渲染、交付检查、PSD 写出、二维码提取与重生成、抠图边缘报告。",
+      instTitle: "装上就能用", instSub: "不需要改你的工作流，也不需要为每个 Agent 单独适配。",
+      i1t: "Claude Code", i2t: "Codex / 任意 Agent", i3t: "Git 克隆",
+      instNote: "编辑器与项目脚手架零依赖；只有渲染、检查、PSD、二维码脚本需要 pip install -r requirements.txt。",
+      dlTitle: "下载与文档", dlSub: "压缩包内是完整的技能目录，解压即用。",
+      d1: "技能包压缩包", d2: "快速开始", d3: "工作流详解", d4: "编辑器说明", d5: "常见问题", d6: "English docs",
+      qrCap: "扫码打开 GitHub 仓库"
+    },
+    en: {
+      navWhy: "Why", navFlow: "Workflow", navInstall: "Install", navDownload: "Download",
+      heroTitle: "From one sentence and client material to a poster that is <em>ready to ship</em>.",
+      heroLead: "Poster Master is an agent skill package that owns the whole job: copy hierarchy, visual direction, draft and iteration, an editable component source, and PNG / SVG / layered PSD delivery with checks.",
+      ctaInstall: "Install the skill", ctaRepo: "Open the repository",
+      try: "Try:",
+      shotCap: "Sample output · rendered by the headless renderer in the package · 1080 × 1440 · QR decodes",
+      whyTitle: "The four things that break poster delivery",
+      whySub: "None of them are taste questions. Rules catch them.",
+      w1t: "Facts are never guessed", w1d: "A date, price, venue or sign-up link that was not confirmed stays marked as unconfirmed.",
+      w2t: "QR codes are never redrawn", w2d: "Decode, compare character by character, regenerate a clean code, test on a phone.",
+      w3t: "Print and social are two files", w3d: "One artwork is never silently reused. Size, bleed, colour mode and format follow the carrier.",
+      w4t: "Delivery is checked, not eyeballed", w4d: "Scripts check dimensions, colour mode, integrity and QR decodability — and name the four things a machine cannot judge.",
+      flowTitle: "Six stages, one traceable pipeline",
+      flowSub: "The stages belong to the poster, not to the route. A revision re-enters at the stage that owns the change.",
+      f1: "Audience, primary effect, core message, success criteria", f2: "Priority-tagged copy set and open questions",
+      f3: "Keywords, palette, type, key visual", f4: "At least one composition readable at actual size",
+      f5: "A versioned feedback log with decisions", f6: "Channel-specific PNG / SVG / PSD plus a delivery check",
+      d1t: "A component source", d1d: "Not a picture: a JSON with grouped layers and per-element copy and position that anyone can continue.",
+      d2t: "A dependency-free editor", d2d: "Node standard library only, local server, canvas editing, PNG / SVG / layered PSD export. No npm install.",
+      d3t: "Scripted checks", d3d: "Scaffold, headless render, delivery check, PSD writer, QR extraction and regeneration, cutout edge report.",
+      instTitle: "Install and go",
+      instSub: "No workflow changes, no per-agent adaptation.",
+      i1t: "Claude Code", i2t: "Codex / any agent", i3t: "Git clone",
+      instNote: "The editor and the scaffolder need nothing; only the render, check, PSD and QR scripts need pip install -r requirements.txt.",
+      dlTitle: "Download and documentation",
+      dlSub: "The archive contains the complete skill folder — unzip and use.",
+      d1: "Skill archive", d2: "Getting started", d3: "Workflow detail", d4: "Editor", d5: "FAQ", d6: "English docs",
+      qrCap: "Scan to open the repository"
+    }
+  };
+  const nodes = document.querySelectorAll("[data-i18n]");
+  function apply(lang) {
+    const dict = I18N[lang];
+    nodes.forEach(node => { node.innerHTML = dict[node.dataset.i18n] || node.textContent; });
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.getElementById("zh").classList.toggle("on", lang === "zh");
+    document.getElementById("en").classList.toggle("on", lang === "en");
+    try { localStorage.setItem("pm-lang", lang); } catch (e) {}
+  }
+  document.getElementById("zh").addEventListener("click", () => apply("zh"));
+  document.getElementById("en").addEventListener("click", () => apply("en"));
+  let saved = null;
+  try { saved = localStorage.getItem("pm-lang"); } catch (e) {}
+  apply(saved === "en" ? "en" : "zh");
+</script>
+</body>
+</html>

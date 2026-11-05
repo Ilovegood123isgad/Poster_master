@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "poster-master",
+  "description": "Design a poster end to end: copy hierarchy, visual direction, artwork, an editable component source, and PNG / SVG / layered PSD delivery.",
+  "author": {
+    "name": "Ilovegood123isgad",
+    "url": "https://github.com/Ilovegood123isgad"
+  },
+  "homepage": "https://github.com/Ilovegood123isgad/Poster_master",
+  "repository": "https://github.com/Ilovegood123isgad/Poster_master",
+  "license": "MIT",
+  "keywords": [
+    "poster",
+    "flyer",
+    "宣传海报",
+    "招新海报",
+    "活动海报",
+    "design",
+    "ai",
+    "skill",
+    "print",
+    "psd",
+    "svg"
+  ],
+  "skills": "./"
+}

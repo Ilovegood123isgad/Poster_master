@@ -1,0 +1,17 @@
+# Poster Master runtime dependencies.
+#
+# The component editor (scripts/editor/server.js) and the project scaffolder
+# (scripts/new_project.js) are pure Node standard library and need nothing
+# from this file. Install these only when the Python scripts are used:
+#
+#     pip install -r requirements.txt
+
+# Rendering, delivery checks, PSD export, QR extraction and regeneration
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+
+# Optional - only for scripts/cutout.py. It downloads a segmentation model on
+# first use, so keep it out of the default install:
+#
+#     pip install "rembg>=2.0.56"

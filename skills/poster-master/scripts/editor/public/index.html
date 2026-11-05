@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Poster Master · 海报编辑器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">PM</div>
+        <div class="brand-text">
+          <div class="brand-name" id="posterName">载入中…</div>
+          <div class="brand-meta" id="posterMeta">Poster Master</div>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="history-group">
+          <button class="icon-btn" id="undoBtn" title="撤销 (Ctrl+Z)" aria-label="撤销">↶</button>
+          <button class="icon-btn" id="redoBtn" title="重做 (Ctrl+Y)" aria-label="重做">↷</button>
+        </div>
+        <div class="save-state" id="saveState"><span class="dot"></span><span id="saveStateText">已同步</span></div>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="btn" id="previewBtn" title="预览 (P)">预览</button>
+        <button class="btn" id="saveBtn" title="保存源稿 (Ctrl+S)">保存</button>
+        <div class="menu-wrap">
+          <button class="btn btn-primary" id="exportBtn" aria-haspopup="true" aria-expanded="false">导出<span class="caret"></span></button>
+          <div class="menu" id="exportMenu" hidden>
+            <button data-export="png1">PNG · 1×<span>屏幕与普通印刷</span></button>
+            <button data-export="png2">PNG · 2×<span>高清印刷 / 缩放</span></button>
+            <button data-export="svg">SVG · 矢量<span>内嵌主视觉位图</span></button>
+            <button data-export="psd">PSD · 分层<span>按组件分组</span></button>
+          </div>
+        </div>
+        <button class="icon-btn ghost" id="langBtn" title="切换语言">EN</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel panel-left">
+        <div class="panel-head">
+          <h2>图层</h2>
+          <span class="chip" id="layerCount">0</span>
+        </div>
+        <div class="panel-tools">
+          <input type="search" id="layerSearch" placeholder="搜索组件…" autocomplete="off">
+        </div>
+        <div class="layer-list" id="layerList"></div>
+        <div class="panel-foot">
+          <button class="mini-btn" id="groupUpBtn" title="上移一层">上移</button>
+          <button class="mini-btn" id="groupDownBtn" title="下移一层">下移</button>
+          <button class="mini-btn" id="duplicateBtn" title="复制 (Ctrl+D)">复制</button>
+          <button class="mini-btn danger" id="deleteBtn" title="删除 (Delete)">删除</button>
+        </div>
+      </aside>
+
+      <section class="stage" id="stage">
+        <div class="stage-surface" id="stageSurface">
+          <div class="canvas-frame" id="canvasFrame">
+            <canvas id="poster"></canvas>
+          </div>
+        </div>
+        <div class="stage-toolbar">
+          <button class="icon-btn" id="zoomOut" title="缩小 (Ctrl+-)">−</button>
+          <button class="zoom-label" id="zoomLabel" title="点击重置为 100%">100%</button>
+          <button class="icon-btn" id="zoomIn" title="放大 (Ctrl+=)">+</button>
+          <span class="toolbar-divider"></span>
+          <button class="icon-btn" id="zoomFit" title="适应窗口 (0)">适应</button>
+        </div>
+        <div class="stage-hint" id="stageHint"></div>
+      </section>
+
+      <aside class="panel panel-right">
+        <div class="panel-head">
+          <h2>属性</h2>
+          <span class="chip subtle" id="inspectorType"></span>
+        </div>
+        <div class="inspector" id="inspector"></div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span id="statusText">就绪</span>
+      <span class="statusbar-spacer"></span>
+      <span id="statusMeta" class="muted"></span>
+    </footer>
+  </div>
+
+  <div class="preview-overlay" id="previewOverlay" hidden>
+    <div class="preview-bar">
+      <div class="preview-title" id="previewTitle">预览</div>
+      <div class="preview-actions">
+        <button class="btn ghost" id="previewBackdropBtn" title="切换背景">背景</button>
+        <button class="btn" id="previewCloseBtn" title="退出预览 (Esc)">退出预览</button>
+      </div>
+    </div>
+    <div class="preview-stage" id="previewStage">
+      <canvas id="previewCanvas"></canvas>
+    </div>
+    <div class="preview-caption" id="previewCaption"></div>
+  </div>
+
+  <input id="assetInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+  <script src="app.js"></script>
+</body>
+</html>
+
