@@ -46,11 +46,41 @@ repository supports it.
 ## Before you push
 
 ```bash
-python tools/package_skill.py
+# 1. the package is structurally sound (links, placeholders, syntax, orphans)
 python skills/poster-master/scripts/quick_validate.py skills/poster-master
+python tools/check_links.py          # also asserts version consistency
+
+# 2. the JavaScript still parses
 node --check skills/poster-master/scripts/editor/server.js
 node --check skills/poster-master/scripts/editor/public/app.js
+
+# 3. sync the working copy into the repo and rebuild the archive
+python tools/package_skill.py --source ../skills/poster-master
+
+# 4. the example must still pass its own delivery check
+node skills/poster-master/examples/build-demo.js
+python skills/poster-master/scripts/check_delivery.py --project skills/poster-master/examples/城市夜跑
 ```
 
 Commit messages describe the change in one line, then the reason in the body when the reason is
 not obvious.
+
+## Releasing
+
+A pushed tag does not create a downloadable release, and the documentation links straight at
+`releases/download/v<version>/poster-master-skill-v<version>.zip`. So publishing has three
+steps, in this order:
+
+```bash
+python tools/package_skill.py --source ../skills/poster-master   # sync + build the zip
+python tools/make_release.py --dry-run                            # read the body first
+python tools/make_release.py                                      # create release + upload asset
+```
+
+`make_release.py` takes the release body from the matching `## v<version>` section of
+`CHANGELOG.md`, reuses the git credential for the API call, and never prints the token. Write
+the changelog entry **before** running it.
+
+Bump `SKILL.md`'s `metadata.version` and `.claude-plugin/marketplace.json` together;
+`check_links.py` fails the build if they disagree, or if the archive for the current version
+is missing.

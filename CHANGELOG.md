@@ -1,8 +1,10 @@
 # 变更日志
 
+[English](CHANGELOG_EN.md) · 中文为准，英文版为镜像。
+
 版本遵循语义化：破坏性变更升 major，新增能力升 minor，修复升 patch。
 技能包版本的真源是 `skills/poster-master/SKILL.md` 的 `metadata.version`；
-`.claude-plugin/marketplace.json` 与压缩包文件名必须与它一致。
+`.claude-plugin/marketplace.json` 与压缩包文件名必须与它一致，`tools/check_links.py` 会强制校验。
 
 ## v1.1.0 — 2026-11-06
 
