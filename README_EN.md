@@ -7,6 +7,7 @@
 [中文](README.md) · [Getting started](docs/en/getting-started.md) · [Installation](docs/en/installation.md) · [Docs](docs/en/README.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f7a5c.svg)](LICENSE)
+[![CI](https://github.com/Ilovegood123isgad/Poster_master/actions/workflows/ci.yml/badge.svg)](https://github.com/Ilovegood123isgad/Poster_master/actions/workflows/ci.yml)
 [![Skill version](https://img.shields.io/badge/skill-1.1.0-3b82f6.svg)](skills/poster-master/SKILL.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-marketplace-8a5cf5.svg)](.claude-plugin/marketplace.json)
 

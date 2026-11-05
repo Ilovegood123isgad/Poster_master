@@ -42,6 +42,9 @@ repository supports it.
    <code>docs/en/</code> and <code>README_EN.md</code>. Add both when adding a document.
 8. **Keep the editor dependency-free.** <code>skills/poster-master/scripts/editor/</code> runs on
    the Node standard library only — no npm dependencies, no network calls, loopback binding only.
+9. **A bug fix comes with the assertion that catches it.** Tests live in <code>tests/</code>, run
+   offline in a few seconds, and are the only reason defects like an inverted layer stack or a
+   two-byte channel length stay fixed. Never put client material in a test.
 
 ## Before you push
 
@@ -60,6 +63,9 @@ python tools/package_skill.py --source ../skills/poster-master
 # 4. the example must still pass its own delivery check
 node skills/poster-master/examples/build-demo.js
 python skills/poster-master/scripts/check_delivery.py --project skills/poster-master/examples/城市夜跑
+
+# 5. behaviour must still hold (same suite CI runs on Ubuntu and Windows)
+python tests/run_all.py
 ```
 
 Commit messages describe the change in one line, then the reason in the body when the reason is

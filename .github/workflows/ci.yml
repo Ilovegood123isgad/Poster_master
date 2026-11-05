@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Windows runners default to pwsh, where a trailing backslash is not a line
+  # continuation. Every run step below is therefore a single line, or a block
+  # whose lines are independent commands.
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: "1"
+
+jobs:
+  validate:
+    name: validate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # OpenCV imports libGL at load time; the renderer needs a CJK font.
+      - name: Install system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0 fonts-noto-cjk
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r skills/poster-master/requirements.txt
+
+      # --- the package itself -------------------------------------------------
+      - name: Validate package structure, links, placeholders, syntax
+        run: python skills/poster-master/scripts/quick_validate.py skills/poster-master
+
+      - name: Check local links and version consistency
+        run: python tools/check_links.py
+
+      - name: Check the archive matches the source tree
+        run: python tools/check_archive.py
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check skills/poster-master/scripts/editor/server.js
+          node --check skills/poster-master/scripts/editor/public/app.js
+
+      # --- the regression baseline (AGENTS.md rule 5) -------------------------
+      - name: Rebuild the example project
+        run: node skills/poster-master/examples/build-demo.js
+
+      - name: Render the example preview
+        run: python skills/poster-master/scripts/render_preview.py --source skills/poster-master/examples/城市夜跑/城市夜跑-组件源稿.poster.json --output skills/poster-master/examples/城市夜跑/exports/城市夜跑-v1-预览.png --dpi 72
+
+      - name: Run the example delivery check
+        run: python skills/poster-master/scripts/check_delivery.py --project skills/poster-master/examples/城市夜跑
+
+      - name: Export the example as outlined SVG
+        run: python skills/poster-master/scripts/export_svg.py --project skills/poster-master/examples/城市夜跑 --output ${{ runner.temp }}/example.svg
+
+      # --- behaviour ----------------------------------------------------------
+      - name: Run the test suite
+        run: python tests/run_all.py

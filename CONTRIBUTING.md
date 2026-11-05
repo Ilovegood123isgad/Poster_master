@@ -24,11 +24,17 @@ visible to every agent that installs it.
 1. Open an issue describing the failure, not only the fix.
 2. Work on a branch: <code>git checkout -b codex/short-description</code>.
 3. Keep the change inside <code>skills/poster-master/</code> plus the documents that describe it.
-4. Run the regression baseline (see <code>AGENTS.md</code>).
+4. Run the checks (see <code>AGENTS.md</code>): the package validator, the link and version
+   check, the example regression, and <code>python tests/run_all.py</code>.
 5. Bump the version in <code>skills/poster-master/SKILL.md</code> and
    <code>.claude-plugin/marketplace.json</code> when the change affects agents.
 6. Rebuild the archive with <code>python tools/package_skill.py</code> and commit it.
 7. Open a pull request describing the before and after.
+
+CI runs the same steps on Ubuntu and Windows for every push and pull request. If you fixed a
+bug, the pull request that fixes it should also add the assertion that would have caught it —
+<code>tests/</code> exists because a defect shipped that "opening the file and looking at it"
+did not catch.
 
 ## Commit messages
 
