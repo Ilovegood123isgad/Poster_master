@@ -178,6 +178,12 @@ button { cursor: pointer; }
 }
 .icon-btn:hover { background: var(--raise); color: var(--ink); }
 .icon-btn:disabled { opacity: .32; cursor: not-allowed; }
+/* A panel toggle is a two-state control, so it shows its state. */
+.icon-btn.on {
+  background: var(--accent-soft);
+  border-color: rgba(91, 156, 255, .38);
+  color: #9cc2ff;
+}
 .icon-btn.ghost { border-color: var(--line-2); font-size: 11px; font-weight: 600; }
 
 .menu-wrap { position: relative; }
@@ -264,10 +270,32 @@ button { cursor: pointer; }
 
 /* -------------------------------------------------------------- workspace */
 
+/*
+ * Three columns on a wide screen; the two side panels become off-canvas drawers
+ * on a narrow one (a DSH sidebar tab is roughly 700–1000 px). The single source
+ * of truth is the `data-left` / `data-right` attribute on `.workspace`, so the
+ * stylesheet and the script cannot disagree about what "open" means.
+ */
 .workspace {
+  position: relative;
   display: grid;
   grid-template-columns: 262px 1fr 304px;
   min-height: 0;
+}
+.panel-left { grid-column: 1; }
+.stage { grid-column: 2; }
+.panel-right { grid-column: 3; }
+
+/* Wide: a closed panel stops taking a column entirely. */
+.workspace[data-left="0"] { grid-template-columns: 0 1fr 304px; }
+.workspace[data-right="0"] { grid-template-columns: 262px 1fr 0; }
+.workspace[data-left="0"][data-right="0"] { grid-template-columns: 0 1fr 0; }
+/* Wide: a closed panel stops taking a column entirely. Scoped to wide widths so
+   that on a narrow screen a closed drawer stays in the layout and just slides
+   off-canvas — `display: none` would kill the slide transition. */
+@media (min-width: 1181px) {
+  .workspace[data-left="0"] .panel-left,
+  .workspace[data-right="0"] .panel-right { display: none; }
 }
 
 .panel {
@@ -278,6 +306,63 @@ button { cursor: pointer; }
   border-right: 1px solid var(--line);
 }
 .panel-right { border-right: 0; border-left: 1px solid var(--line); }
+
+.panel-scrim { display: none; }
+
+/* Narrow: panels overlay the canvas instead of shrinking it. */
+@media (max-width: 1180px) {
+  .workspace,
+  .workspace[data-left="0"],
+  .workspace[data-right="0"],
+  .workspace[data-left="0"][data-right="0"] { grid-template-columns: 1fr; }
+
+  .stage { grid-column: 1 / -1; }
+
+  .panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: min(320px, 88%);
+    z-index: 40;
+    display: flex;                    /* override the wide-screen hiding */
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    transition: transform .18s ease;
+  }
+  .panel-left { left: 0; }
+  .panel-right { right: 0; }
+
+  .workspace[data-left="0"] .panel-left {
+    transform: translateX(-104%);
+    pointer-events: none;
+  }
+  .workspace[data-right="0"] .panel-right {
+    transform: translateX(104%);
+    pointer-events: none;
+  }
+
+  /* The scrim belongs to whichever drawer is open. */
+  .workspace[data-left="1"] .panel-scrim,
+  .workspace[data-right="1"] .panel-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: rgba(4, 6, 10, .5);
+  }
+
+  /* Reclaim the canvas: tighter padding, and the hint would sit under the zoom bar. */
+  .stage-surface { padding: 16px; }
+  .stage-hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { transition: none; }
+}
+
+/* Very narrow: the carrier line is the first thing worth dropping. */
+@media (max-width: 900px) {
+  .brand-meta { display: none; }
+}
 
 .panel-head {
   flex: none;
@@ -347,9 +432,12 @@ button { cursor: pointer; }
 
 .layer-items { display: flex; flex-direction: column; gap: 2px; }
 
+/* Three children are appended (type icon, name, visibility flag), so the grid has
+   three columns. It used to declare four, which pushed every layer name into an
+   18 px column — the panel showed "行." instead of "行动文字". */
 .layer {
   display: grid;
-  grid-template-columns: 20px 18px 1fr 22px;
+  grid-template-columns: 20px 1fr 24px;
   align-items: center;
   gap: 5px;
   padding: 5px 6px;

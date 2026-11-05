@@ -40,7 +40,13 @@ const dom = {
   previewTitle: document.getElementById("previewTitle"),
   previewCloseBtn: document.getElementById("previewCloseBtn"),
   previewBackdropBtn: document.getElementById("previewBackdropBtn"),
-  langBtn: document.getElementById("langBtn")
+  langBtn: document.getElementById("langBtn"),
+  workspace: document.getElementById("workspace"),
+  panelLeft: document.getElementById("panelLeft"),
+  panelRight: document.getElementById("panelRight"),
+  panelScrim: document.getElementById("panelScrim"),
+  layersToggle: document.getElementById("layersToggle"),
+  propsToggle: document.getElementById("propsToggle")
 };
 
 const ctx = dom.poster.getContext("2d");
@@ -60,7 +66,11 @@ const state = {
   lang: "zh",
   previewBackdrop: "dark",
   replaceTargetId: null,
-  images: new Map()
+  images: new Map(),
+  // Panel visibility. On a wide screen both are open; on a narrow one (a DSH
+  // sidebar tab) the canvas owns the space and the panels are drawers.
+  panels: { left: true, right: true },
+  autoFit: true
 };
 
 const TYPE_LABEL = {
@@ -757,9 +767,10 @@ async function save() {
   }
 }
 
-function setZoom(value) {
+function setZoom(value, options) {
   const canvas = state.project ? state.project.canvas : { width: 1024, height: 1536 };
   state.zoom = Math.max(0.05, Math.min(8, value));
+  if (!(options && options.keepAutoFit)) state.autoFit = Boolean(options && options.autoFit);
   dom.poster.style.width = Math.round(canvas.width * state.zoom) + "px";
   dom.poster.style.height = Math.round(canvas.height * state.zoom) + "px";
   dom.zoomLabel.textContent = Math.round(state.zoom * 100) + "%";
@@ -769,12 +780,79 @@ function setZoom(value) {
 function fitToStage() {
   if (!state.project) return;
   const canvas = state.project.canvas;
+  // clientWidth includes padding, so subtract what the stylesheet actually uses
+  // — the padding is smaller on a narrow screen and a hardcoded 80 would then
+  // leave the canvas smaller than the space available.
+  const style = getComputedStyle(dom.stageSurface);
+  const padX = parseFloat(style.paddingLeft || 0) + parseFloat(style.paddingRight || 0);
+  const padY = parseFloat(style.paddingTop || 0) + parseFloat(style.paddingBottom || 0);
   const available = {
-    width: dom.stageSurface.clientWidth - 80,
-    height: dom.stageSurface.clientHeight - 80
+    width: dom.stageSurface.clientWidth - padX,
+    height: dom.stageSurface.clientHeight - padY
   };
+  if (available.width <= 0 || available.height <= 0) return;
   const scale = Math.min(available.width / canvas.width, available.height / canvas.height, 1.5);
-  setZoom(scale);
+  setZoom(scale, { autoFit: true });
+}
+
+/* ------------------------------------------------------------ side panels */
+
+const NARROW_QUERY = "(max-width: 1180px)";
+const narrowMedia = window.matchMedia ? window.matchMedia(NARROW_QUERY) : null;
+
+function isNarrow() {
+  if (narrowMedia) return narrowMedia.matches;
+  return window.innerWidth <= 1180;
+}
+
+function applyPanels() {
+  const workspace = dom.workspace;
+  if (!workspace) return;
+  workspace.dataset.left = state.panels.left ? "1" : "0";
+  workspace.dataset.right = state.panels.right ? "1" : "0";
+  if (dom.layersToggle) {
+    dom.layersToggle.setAttribute("aria-pressed", String(state.panels.left));
+    dom.layersToggle.classList.toggle("on", state.panels.left);
+  }
+  if (dom.propsToggle) {
+    dom.propsToggle.setAttribute("aria-pressed", String(state.panels.right));
+    dom.propsToggle.classList.toggle("on", state.panels.right);
+  }
+  if (dom.panelScrim) {
+    // The scrim only exists to dismiss a drawer; on a wide screen there is none.
+    dom.panelScrim.hidden = !(isNarrow() && (state.panels.left || state.panels.right));
+  }
+  if (state.autoFit) fitToStage();
+}
+
+function setPanel(side, open) {
+  state.panels[side] = Boolean(open);
+  applyPanels();
+}
+
+function togglePanel(side) {
+  // At narrow width only one drawer at a time, otherwise the second one is
+  // useless and the scrim covers it anyway.
+  if (isNarrow() && !state.panels[side]) {
+    state.panels[side === "left" ? "right" : "left"] = false;
+  }
+  state.panels[side] = !state.panels[side];
+  applyPanels();
+}
+
+function closePanels() {
+  if (!state.panels.left && !state.panels.right) return;
+  state.panels.left = false;
+  state.panels.right = false;
+  applyPanels();
+}
+
+/** Defaults follow the breakpoint; crossing it resets to that mode's default. */
+function resetPanelsForWidth() {
+  const narrow = isNarrow();
+  state.panels.left = !narrow;
+  state.panels.right = !narrow;
+  applyPanels();
 }
 
 function eventPoint(event) {
@@ -1332,7 +1410,18 @@ document.addEventListener("keydown", event => {
   }
   if (event.key === "Escape") {
     if (!dom.previewOverlay.hidden) closePreview();
+    else if (isNarrow() && (state.panels.left || state.panels.right)) closePanels();
     else select(null);
+    return;
+  }
+  if (key === "l" && !meta) {
+    event.preventDefault();
+    togglePanel("left");
+    return;
+  }
+  if (key === "i" && !meta) {
+    event.preventDefault();
+    togglePanel("right");
     return;
   }
   if (key === "p") {
@@ -1376,6 +1465,10 @@ dom.zoomOut.addEventListener("click", () => setZoom(state.zoom / 1.2));
 dom.zoomFit.addEventListener("click", fitToStage);
 dom.zoomLabel.addEventListener("click", () => setZoom(1));
 if (dom.psdGranularity) dom.psdGranularity.addEventListener("change", updatePsdNote);
+
+if (dom.layersToggle) dom.layersToggle.addEventListener("click", () => togglePanel("left"));
+if (dom.propsToggle) dom.propsToggle.addEventListener("click", () => togglePanel("right"));
+if (dom.panelScrim) dom.panelScrim.addEventListener("click", closePanels);
 
 dom.exportBtn.addEventListener("click", event => {
   event.stopPropagation();
@@ -1445,15 +1538,18 @@ dom.langBtn.addEventListener("click", () => {
 
 window.addEventListener("resize", () => {
   if (!state.project) return;
-  const canvas = state.project.canvas;
-  const available = {
-    width: dom.stageSurface.clientWidth - 80,
-    height: dom.stageSurface.clientHeight - 80
-  };
-  const scale = Math.min(available.width / canvas.width, available.height / canvas.height, 1.5);
-  if (Math.abs(scale - state.zoom) < 0.02) setZoom(scale);
+  if (state.autoFit) fitToStage();
 });
 
+// Crossing the breakpoint changes what "open" should mean, so reset to that
+// mode's default instead of leaving a drawer open on top of a full-width canvas.
+if (narrowMedia) {
+  const onBreakpoint = () => resetPanelsForWidth();
+  if (narrowMedia.addEventListener) narrowMedia.addEventListener("change", onBreakpoint);
+  else if (narrowMedia.addListener) narrowMedia.addListener(onBreakpoint);
+}
+
+resetPanelsForWidth();
 applyLanguage();
 load();
 

@@ -41,6 +41,14 @@ of rendering a broken canvas.
 | Preview | Full-bleed preview of the artwork without the editor chrome, for judging the poster as a viewer sees it. |
 | Exports | PNG at 1×, 2× or 3×; SVG with the key visual embedded; layered PSD with a choice of granularity and dpi. |
 
+### Panels on a narrow screen
+
+In a full browser window both side panels sit next to the canvas. In a narrow one — a DSH
+sidebar tab is about 700–1000 px — they become drawers over the canvas and start closed, so
+the artwork gets the whole width. The two buttons at the right of the top bar open them;
+`L` and `I` do the same, `Esc` closes. Only one drawer is open at a time, and the canvas
+refits itself whenever the space changes.
+
 ### The export menu
 
 Two settings there change the file itself, so set them deliberately:

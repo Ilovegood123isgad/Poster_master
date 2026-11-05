@@ -142,6 +142,10 @@ user asks for layered files. Its source format, element types, and limits:
 `references/editor-source-format.md`. Its export controls — per-group or per-element
 layers, dpi — and the PSD contract: `references/psd-layer-spec.md`.
 
+The canvas is full width in a browser window; in a narrow one (a DSH sidebar tab runs about
+700–1000 px) the two side panels become drawers and start closed, so the artwork keeps the
+space. `L` toggles layers, `I` toggles the inspector, `Esc` closes the drawer.
+
 Two hard lessons about the editor:
 
 1. **Every editor operation needs a command-line equivalent.** An SVG export that only

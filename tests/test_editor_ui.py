@@ -86,6 +86,27 @@ def main() -> None:
         "buildSvg 支持 includeBackground（否则 PSD 每层都带不透明底）",
     )
 
+    # 6. narrow-screen layout: panels become drawers, the canvas keeps the space
+    check('id="layersToggle"' in html and 'id="propsToggle"' in html,
+          "顶栏有两个面板开关")
+    check('id="panelScrim"' in html, "有抽屉遮罩层")
+    check("@media (max-width: 1180px)" in css, "style.css 有窄屏断点（1180px）")
+    check('data-left="0"' in css and 'data-right="0"' in css,
+          "面板开合状态由 data-left / data-right 驱动")
+    check("@media (min-width: 1181px)" in css,
+          "宽屏的 display:none 被限定在宽屏（否则窄屏抽屉没有滑入过渡）")
+    for name in ("applyPanels", "togglePanel", "resetPanelsForWidth", "isNarrow"):
+        check(f"function {name}" in app, f"app.js 有 {name}")
+    check("state.autoFit" in app, "缩放跟随窗口变化由 state.autoFit 控制")
+
+    # 7. the layer row appends three children, so the grid must have three columns.
+    #    It once declared four and pushed every name into an 18px column — the
+    #    panel showed "行." instead of "行动文字".
+    layer_rule = re.search(r"\.layer\s*\{([^}]*)\}", css)
+    columns = re.search(r"grid-template-columns\s*:\s*([^;]+);", layer_rule.group(1)) if layer_rule else None
+    check(columns is not None and len(columns.group(1).split()) == 3,
+          f".layer 的列数与 DOM 子元素数量一致（3 列），实际：{columns.group(1).strip() if columns else '读不到'}")
+
     failed = [message for ok, message in results if not ok]
     print("-" * 68)
     print(f"结论：{len(results) - len(failed)} 项通过，{len(failed)} 项失败")

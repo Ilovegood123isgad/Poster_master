@@ -27,6 +27,8 @@
       </div>
 
       <div class="topbar-actions">
+        <button class="icon-btn" id="layersToggle" title="图层面板" aria-label="图层面板" aria-pressed="true">▤</button>
+        <button class="icon-btn" id="propsToggle" title="属性面板" aria-label="属性面板" aria-pressed="true">▥</button>
         <button class="btn" id="previewBtn" title="预览 (P)">预览</button>
         <button class="btn" id="saveBtn" title="保存源稿 (Ctrl+S)">保存</button>
         <div class="menu-wrap">
@@ -60,8 +62,8 @@
       </div>
     </header>
 
-    <main class="workspace">
-      <aside class="panel panel-left">
+    <main class="workspace" id="workspace">
+      <aside class="panel panel-left" id="panelLeft">
         <div class="panel-head">
           <h2>图层</h2>
           <span class="chip" id="layerCount">0</span>
@@ -94,13 +96,15 @@
         <div class="stage-hint" id="stageHint"></div>
       </section>
 
-      <aside class="panel panel-right">
+      <aside class="panel panel-right" id="panelRight">
         <div class="panel-head">
           <h2>属性</h2>
           <span class="chip subtle" id="inspectorType"></span>
         </div>
         <div class="inspector" id="inspector"></div>
       </aside>
+
+      <div class="panel-scrim" id="panelScrim" hidden></div>
     </main>
 
     <footer class="statusbar">
