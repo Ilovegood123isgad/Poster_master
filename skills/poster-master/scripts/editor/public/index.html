@@ -32,10 +32,28 @@
         <div class="menu-wrap">
           <button class="btn btn-primary" id="exportBtn" aria-haspopup="true" aria-expanded="false">导出<span class="caret"></span></button>
           <div class="menu" id="exportMenu" hidden>
-            <button data-export="png1">PNG · 1×<span>屏幕与普通印刷</span></button>
-            <button data-export="png2">PNG · 2×<span>高清印刷 / 缩放</span></button>
-            <button data-export="svg">SVG · 矢量<span>内嵌主视觉位图</span></button>
-            <button data-export="psd">PSD · 分层<span>按组件分组</span></button>
+            <div class="menu-head">导出</div>
+            <div class="menu-section">图片</div>
+            <button data-export="png1">PNG · 1×<span>屏幕确认</span></button>
+            <button data-export="png2">PNG · 2×<span>常规印刷</span></button>
+            <button data-export="png3">PNG · 3×<span>A2 / A3 大尺寸</span></button>
+            <div class="menu-section">矢量与分层</div>
+            <button data-export="svg">SVG · 矢量<span>文字未转曲，需本机字体</span></button>
+            <button data-export="psd">PSD · 分层<span>按下面的粒度与 dpi 导出</span></button>
+            <div class="menu-fields">
+              <label class="menu-field">
+                <span>分层粒度</span>
+                <select id="psdGranularity">
+                  <option value="group" selected>按组件分组</option>
+                  <option value="element">按单个组件</option>
+                </select>
+              </label>
+              <label class="menu-field">
+                <span>dpi</span>
+                <input id="psdDpi" type="number" min="36" max="1200" step="1" value="300">
+              </label>
+            </div>
+            <div class="menu-note" id="psdNote"></div>
           </div>
         </div>
         <button class="icon-btn ghost" id="langBtn" title="切换语言">EN</button>

@@ -15,8 +15,8 @@
 
 ### 2. Codex / 通用 Agent：下载解压
 
-1. 下载 [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip)
-   （或用仓库内的 [dist 副本](../dist/poster-master-skill-v1.0.0.zip)）。
+1. 下载 [poster-master-skill-v1.1.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.1.0/poster-master-skill-v1.1.0.zip)
+   （或用仓库内的 [dist 副本](../dist/poster-master-skill-v1.1.0.zip)）。
 2. 解压得到 <code>poster-master/</code> 目录。
 3. 整个目录放进你的 skills 目录：
    - Windows：<code>%USERPROFILE%\.codex\skills\</code> 或 <code>%USERPROFILE%\.claude\skills\</code>
@@ -71,9 +71,31 @@ python "<技能目录>/scripts/quick_validate.py" "<技能目录>"
 | 能力 | 需要 | 备注 |
 |---|---|---|
 | 编辑器、项目脚手架 | Node.js 18+ | 纯标准库，零 npm 依赖 |
-| 无头渲染、PSD 导出、交付检查 | Python 3.9+、Pillow | <code>pip install -r requirements.txt</code> |
+| 无头渲染、PSD 导出、交付检查 | Python 3.9+、Pillow、numpy | <code>pip install -r requirements.txt</code> |
+| PSD 结构验证 | <code>psd-tools</code> | 交付检查用它证明 PSD 在 Photoshop 之外也能打开；缺失时只能做结构解析 |
+| SVG 文字转曲 | <code>fonttools</code> | 交付级 SVG 不应依赖接收方字体 |
 | 二维码检测与重生成 | numpy、opencv-python | 随 requirements.txt 安装 |
 | 抠图 | rembg（可选） | 首次运行会下载分割模型，体积大，按需装 |
+| 生图 | 你自己的 API Key | 不需要额外 Python 包；运行 <code>python scripts/setup_imagegen.py</code> 填写 |
+
+## 生图模型（可选）
+
+技能包**不含任何密钥**。要用生图，先跑一次引导式配置：
+
+```bash
+python "<技能目录>/scripts/setup_imagegen.py"
+```
+
+它会依次问三件事：接口地址（OpenAI 兼容，通常以 `/v1` 结尾）、你的 API Key（输入时不显示）、
+以及该接口支持的图像模型名。配置保存在 `~/.poster-master/imagegen.json`，不写进任何项目文件夹。
+
+```bash
+python "<技能目录>/scripts/setup_imagegen.py" --test     # 验连通性，不消耗额度
+python "<技能目录>/scripts/setup_imagegen.py" --clear    # 忘掉已保存的配置
+```
+
+也可以用环境变量覆盖配置：`POSTER_IMAGEGEN_API_KEY`、`POSTER_IMAGEGEN_BASE_URL`、
+`POSTER_IMAGEGEN_MODEL`。
 
 ## 环境变量
 

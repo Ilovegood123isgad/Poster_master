@@ -7,7 +7,7 @@
 [English](README_EN.md) · [快速开始](docs/getting-started.md) · [安装](docs/installation.md) · [文档索引](docs/README.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f7a5c.svg)](LICENSE)
-[![Skill version](https://img.shields.io/badge/skill-1.0.0-3b82f6.svg)](skills/poster-master/SKILL.md)
+[![Skill version](https://img.shields.io/badge/skill-1.1.0-3b82f6.svg)](skills/poster-master/SKILL.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-marketplace-8a5cf5.svg)](.claude-plugin/marketplace.json)
 [![Codex](https://img.shields.io/badge/Codex-skill-10a37f.svg)](skills/poster-master/agents/openai.yaml)
 
@@ -27,12 +27,36 @@ Poster Master 是一个 **Agent 技能包**，不是又一个海报模板集合�
 它接管的是「做一张海报」这件事的**全过程**：把需求拆成信息层级，定出视觉方向，产出可读的第一稿，
 迭代并记录反馈，最后交付 PNG / SVG / 分层 PSD，并附带一个**可继续编辑的组件源稿**。
 
-它的四条硬规则，是从大量返工里长出来的：
+它的六条硬规则，是从大量返工里长出来的：
 
 1. **文案事实不能猜。** 日期、价格、地点、报名链接未经确认，就只能标记为待确认，不能填一个"看起来合理"的值。
 2. **二维码永远不重绘。** 解码原码 → 与客户确认的链接逐字符比对 → 重新生成干净码 → 真机实测。
 3. **印刷和社交是两个文件。** 同一张图不静默复用，尺寸、出血、色彩模式按载体分别出。
-4. **交付靠检查，不靠眼睛。** <code>check_delivery.py</code> 核对尺寸、色彩模式、文件完整性和二维码可解码性。
+4. **交付靠检查，不靠眼睛。** <code>check_delivery.py</code> 核对尺寸、色彩模式、dpi、文件完整性、
+   PSD 结构、SVG 是否转曲、二维码是否可解码。
+5. **PSD 能打开不等于正确。** <code>check_psd.py</code> 用 <code>psd-tools</code> 读回文件，验证层名可读、
+   dpi 正确、图层堆叠能合成回成稿。
+6. **能力边界要写在前面。** CMYK、出血、打样是移交项而不是功能，见
+   <code>references/capability-boundaries.md</code>；绝不把屏幕分辨率的 RGB 文件说成印刷可用。
+
+## 用自己的生图模型
+
+技能包**不自带任何 API Key，也不会在你配置之前访问任何服务**。要使用生图，跑一次引导式配置：
+
+```bash
+python "<技能目录>/scripts/setup_imagegen.py"
+```
+
+它会依次问：接口地址（OpenAI 兼容，通常以 `/v1` 结尾）、你的 API Key（输入时不显示）、
+该接口支持的图像模型名。配置保存在 `~/.poster-master/imagegen.json`，不进项目文件夹，
+不会在日志里出现明文。
+
+```bash
+python "<技能目录>/scripts/setup_imagegen.py" --test    # 验连通性，不消耗额度
+python "<技能目录>/scripts/generate_artwork.py" --prompt "…" --size 1536x1024 --output assets/主视觉.png
+```
+
+每次生成都会写一份 sidecar 记录（模型 / 提示词 / 尺寸 / 日期），可直接填进素材台账。
 
 ## 快速开始
 
@@ -44,7 +68,7 @@ Poster Master 是一个 **Agent 技能包**，不是又一个海报模板集合�
 
 ### Codex / 任意 Agent（下载即用）
 
-1. 下载 [poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip)（约 320 KB）。
+1. 下载 [poster-master-skill-v1.1.0.zip](dist/poster-master-skill-v1.1.0.zip)（约 350 KB）。
 2. 解压后把 <code>poster-master</code> 整个目录放进你的技能目录：
    <code>~/.codex/skills/</code>、<code>~/.claude/skills/</code>，或任何 Agent 约定的 skills 目录。
 3. 确认根目录下的 <code>SKILL.md</code> 存在且可读——这是所有 Agent 的入口。
@@ -145,8 +169,8 @@ skills/poster-master/
 
 | 方式 | 地址 |
 |---|---|
-| GitHub Release | [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip) |
-| 技能包压缩包 | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
+| GitHub Release | [poster-master-skill-v1.1.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.1.0/poster-master-skill-v1.1.0.zip) |
+| 技能包压缩包 | [dist/poster-master-skill-v1.1.0.zip](dist/poster-master-skill-v1.1.0.zip) |
 | 源码 | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code 插件 | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |
 | 仓库首页 | <https://github.com/Ilovegood123isgad/Poster_master> |

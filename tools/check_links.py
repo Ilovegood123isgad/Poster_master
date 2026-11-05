@@ -59,17 +59,62 @@ def check_repo_links() -> list[str]:
                 continue
             if not (path.parent / clean).exists() and not (REPO / clean).exists():
                 problems.append(f"{path.relative_to(REPO)} -> {ref}")
+        # Documentation also names package files inline, e.g.
+        # <code>references/psd-layer-spec.md</code>. Those are instructions a
+        # reader will follow, so a typo is a broken link too.
+        for match in SKILL_REF.finditer(text):
+            relative = match.group(1)
+            if not (SKILL / relative).exists():
+                problems.append(f"{path.relative_to(REPO)} -> (技能包内) {relative}")
+    return problems
+
+
+def check_versions() -> list[str]:
+    """One version, three places that must agree."""
+    problems: list[str] = []
+    skill_md = SKILL / "SKILL.md"
+    if not skill_md.exists():
+        return ["找不到 skills/poster-master/SKILL.md"]
+    skill_text = skill_md.read_text(encoding="utf-8")
+    found = re.search(r'^\s*version:\s*"([^"]+)"', skill_text, re.M)
+    if not found:
+        return ["SKILL.md 里读不到 metadata.version"]
+    version = found.group(1)
+
+    marketplace = REPO / ".claude-plugin" / "marketplace.json"
+    if marketplace.exists():
+        import json
+        try:
+            data = json.loads(marketplace.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            problems.append(f"marketplace.json 解析失败：{error}")
+            data = {}
+        meta_version = (data.get("metadata") or {}).get("version")
+        if meta_version and meta_version != version:
+            problems.append(
+                f"版本不一致：SKILL.md {version}，marketplace.json metadata {meta_version}"
+            )
+        for plugin in data.get("plugins") or []:
+            plugin_version = plugin.get("version")
+            if plugin_version and plugin_version != version:
+                problems.append(
+                    f"版本不一致：SKILL.md {version}，插件 {plugin.get('name')} {plugin_version}"
+                )
+
+    archive = REPO / "dist" / f"poster-master-skill-v{version}.zip"
+    if not archive.exists():
+        problems.append(f"缺少当前版本的压缩包：dist/{archive.name}（跑 tools/package_skill.py）")
     return problems
 
 
 def main() -> None:
-    problems = check_skill_links() + check_repo_links()
+    problems = check_skill_links() + check_repo_links() + check_versions()
     if problems:
-        print(f"发现 {len(problems)} 个失效引用：")
+        print(f"发现 {len(problems)} 个问题：")
         for problem in problems:
             print("  -", problem)
         sys.exit(1)
-    print("引用检查通过：技能包与仓库文档中的本地链接全部有效。")
+    print("引用与版本检查通过：本地链接全部有效，版本在技能包、插件清单与压缩包之间一致。")
 
 
 if __name__ == "__main__":

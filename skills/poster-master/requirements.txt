@@ -2,7 +2,12 @@
 #
 # The component editor (scripts/editor/server.js) and the project scaffolder
 # (scripts/new_project.js) are pure Node standard library and need nothing
-# from this file. Install these only when the Python scripts are used:
+# from this file.
+#
+# Image generation (scripts/generate_artwork.py, scripts/setup_imagegen.py) also
+# needs nothing from this file — it only needs your own API key. Run
+#     python scripts/setup_imagegen.py
+# once to configure it. The skill ships no key.
 #
 #     pip install -r requirements.txt
 
@@ -11,7 +16,15 @@ Pillow>=10.0.0
 numpy>=1.24.0
 opencv-python>=4.8.0
 
-# Optional - only for scripts/cutout.py. It downloads a segmentation model on
-# first use, so keep it out of the default install:
+# Outlining text for delivery-grade SVG (scripts/export_svg.py)
+fonttools>=4.40.0
+
+# Reading a PSD back to prove it is correct (scripts/check_psd.py, and the PSD
+# gate inside scripts/check_delivery.py). Without it the check falls back to a
+# structural parse and cannot prove the file opens outside Photoshop.
+psd-tools>=1.10.0
+
+# Optional — only for scripts/cutout.py. It downloads a segmentation model
+# (~176 MB) on first use, so keep it out of the default install:
 #
 #     pip install "rembg>=2.0.56"

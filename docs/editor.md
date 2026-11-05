@@ -88,12 +88,29 @@ node "<技能目录>/scripts/editor/server.js" --project "<项目目录>" [--por
 
 | 格式 | 内容 | 适合 |
 |---|---|---|
-| PNG | 画布位图 | 社交媒体、屏幕、审稿 |
-| SVG | 矢量 + 内嵌位图 | 需要继续在矢量软件里改 |
-| PSD | 每个分组一个图层 | 交给美工精修、印厂输出 |
+| PNG 1× / 2× / 3× | 画布位图 | 社交媒体、屏幕、审稿、A2/A3 印刷 |
+| SVG | 矢量 + 内嵌位图 | 需要继续在矢量软件里改（编辑器这版的文字依赖本机字体，交付前请用 `scripts/export_svg.py` 转曲） |
+| PSD | 每个分组或每个组件一个图层，可建真正的图层组 | 交给美工精修、印厂输出 |
 
-PSD 导出通过 <code>scripts/export_psd.py</code> 完成，需要 Python 与 Pillow。
-若 <code>python</code> 不在 PATH 里，设 <code>POSTER_EDITOR_PYTHON</code>。
+导出菜单里有两个会改变文件本身的设置：
+
+- **分层粒度**：按组件分组（一个分组一层，适合美工移动整块区域）；按单个组件（一个元素一层，
+  同组自动进文件夹，适合客户要改某一行字）。层数没有固定上限，菜单会先显示将要导出多少层。
+- **dpi**：写进 PSD 的 ResolutionInfo 和 PNG 的 pHYs。印刷用 300，屏幕用 72。
+  不写的话所有软件都按 72 dpi 打开，A3 会显示成 1.2 米。
+
+一个分组的元素若在绘制顺序上被别的分组隔开，会被拆成「段1/2」「段2/2」两层。这是正确行为：
+强行合成一层会让元素互相压住，层序就乱了。见 <code>references/psd-layer-spec.md</code>。
+
+PSD 导出通过 <code>scripts/export_psd.py</code> 完成，需要 Python、Pillow 与 numpy。
+若 <code>python</code> 不在 PATH 里，设 <code>POSTER_EDITOR_PYTHON</code>；服务端会依次尝试
+<code>python3</code>、<code>python</code>、<code>py</code>。
+
+导出后建议立刻验证，别只靠"能打开"：
+
+```bash
+python "<技能目录>/scripts/check_psd.py" "<项目>/exports/xxx.psd" --expect-dpi 300 --compare "<项目>/exports/xxx.png"
+```
 
 ## 编辑器 vs 无头渲染
 
@@ -101,10 +118,11 @@ PSD 导出通过 <code>scripts/export_psd.py</code> 完成，需要 Python 与 P
 |---|---|---|
 | 用途 | 改稿、逐元素调整 | 自动化出图、批量预览 |
 | 运行 | 浏览器 + Node 服务 | 纯命令行 |
-| 依赖 | Node 18+ | Python + Pillow |
-| 产物 | PNG / SVG / PSD | PNG |
+| 依赖 | Node 18+ | Python + Pillow + numpy |
+| 产物 | PNG / SVG / PSD | PNG（可写 dpi） |
 
-两者渲染同一份源稿，规则一致（尺寸、层级、字号、颜色）。
+两者渲染同一份源稿，规则一致（尺寸、层级、字号、颜色）。**编辑器的每一项导出都有命令行等价物**，
+因为需要靠浏览器点击才能产出的交付件，在 CI、无头服务器和沙箱里等于不存在。
 需要审阅或批量出图时用无头渲染；需要动手改时用编辑器。
 
 ## 安全边界

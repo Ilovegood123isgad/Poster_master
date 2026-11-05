@@ -9,7 +9,7 @@ description: >
   social poster / print poster, when they ask for poster size or resolution specs, QR-code and
   asset compliance checks, or when they mention poster-master.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   license: "MIT"
   official_repository: "https://github.com/Ilovegood123isgad/Poster_master"
 ---
@@ -40,11 +40,17 @@ checkout. If the absolute path is unavailable, ask for it; never search or guess
 | Create a new poster | `workflows/new-poster.md` |
 | Create a new poster — quick (no confirmation round trip) | `workflows/new-poster.md`, Quick profile |
 | Revise an existing poster | `workflows/revise-poster.md` |
-| Refine in the component editor | `workflows/editor-refine.md` |
+| Work inside the component editor (a tool, usable from any route) | `workflows/editor-refine.md` |
 | Adapt, export, and deliver | `workflows/deliver.md` |
 
 **Hard rule — selected authority only.** Do not load another route's procedure after routing.
 Supporting documents refine one route; they never compete with it.
+
+**One exception, and it is not a route change:** `editor-refine.md` is a *tool manual*. Load
+it whenever you are about to start the editor, from inside Create or Revise, without leaving
+the route you are in. The editor is how composition work happens; it is not a different job.
+Never let the editor become a prerequisite either — every one of its exports has a
+command-line equivalent, and a delivery must be reproducible without a browser.
 
 ## Inputs
 
@@ -61,7 +67,10 @@ Six inputs decide whether a poster can start. Classify each as **known**, **assu
 | Size, deadline, deliverable list | Decides how many versions exist and what "done" means |
 
 Read `references/intake-and-brief.md` for the intake table, the question order, and
-the difference between a missing fact and a design assumption.
+the difference between a missing fact and a design assumption. Read
+`references/asset-intake.md` before accepting any file a client sends — "the client sent
+it" is not "the asset is usable". Read `references/compliance-and-delivery.md` before a
+claim, a person, or a payment path enters the copy.
 
 **Missing facts are blocking only for the fields they touch.** If the copy set is unconfirmed
 but the layout is being explored, continue with placeholder copy clearly marked as such in
@@ -116,33 +125,65 @@ Full stage procedure, artifacts, and templates:
 
 `scripts/editor/` is a dependency-free local editor: Node standard library only, no
 `npm install`, no network. It opens a component source, renders it on a canvas, and
-exports PNG, SVG, and layered PSD.
+exports PNG, SVG, and a layered PSD.
 
 ```bash
 node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>" [--port 41735]
 ```
 
-Use it when the poster needs a component source a designer can open and adjust, when a
-revision must not be re-generated from scratch, or when the user asks for layered files. Its
-source format, element types, and limits:
-`references/editor-source-format.md`.
+It is a **tool, not a separate job**. Use it during Create and Revise as well as when the
+user asks for layered files. Its source format, element types, and limits:
+`references/editor-source-format.md`. Its export controls — per-group or per-element
+layers, dpi — and the PSD contract: `references/psd-layer-spec.md`.
 
-The editor is an optional companion, not a prerequisite. Never assume the host can reach a
-Windows project directory or start a local server — if the editor route is selected and the
-runtime is unavailable, say so and continue with the non-editor route.
+Two hard lessons about the editor:
+
+1. **Every editor operation needs a command-line equivalent.** An SVG export that only
+   exists behind a browser button is an export that does not exist in a sandbox, in CI, or
+   on a headless host. `scripts/render_preview.py`, `scripts/export_svg.py`, and
+   `scripts/export_psd.py` exist so that nothing in the delivery path depends on a UI.
+2. **Never block on the editor.** If the host cannot start a local server or open a
+   browser, say so and continue with the CLI path. The component source is the artefact;
+   the canvas is one way to look at it.
+
+## Image Generation (Optional, User's Own Key)
+
+When the direction needs a key visual that no supplied asset can provide, generation is
+usually the right tool — hand-coding the subject in Python is not. It is **optional and
+user-configured**: this skill ships no key and calls no service until the user sets one up.
+
+```bash
+python "${SKILL_DIR}/scripts/setup_imagegen.py"     # asks for base_url, api_key, model
+python "${SKILL_DIR}/scripts/setup_imagegen.py" --test
+```
+
+Ask the user for three things, in this order, because each one decides the next: the
+OpenAI-compatible `base_url`, their API key (hidden prompt, stored at
+`~/.poster-master/imagegen.json`, never in the project and never in the chat), and the model
+name that endpoint actually serves. Then:
+
+```bash
+python "${SKILL_DIR}/scripts/generate_artwork.py" --prompt "…" --size 1536x1024 --output assets/主视觉.png
+```
+
+**If the user has not configured a provider, say so and offer the alternatives.** Do not
+improvise a subject by scripting geometry unless the user explicitly accepts that quality
+ceiling. What may be generated — atmosphere yes, facts no — is
+`references/image-generation.md`, and it is not a style preference.
 
 ## Runtime Dependencies
 
 The editor and the project scaffolder are pure Node standard library — they run with no
-install step. The Python scripts (rendering, delivery checks, PSD export, QR handling,
-background removal) need the packages listed in `requirements.txt`:
+install step. The Python scripts need the packages listed in `requirements.txt`:
 
 ```bash
 pip install -r "${SKILL_DIR}/requirements.txt"
 ```
 
-Run them only when a route needs them. `cutout.py` additionally needs `rembg`, which
-downloads a segmentation model on first use; install it deliberately, not by default.
+`psd-tools` is part of that list on purpose: it is the PSD gate. Without it, nothing in the
+skill can prove a layered file opens outside Photoshop. `cutout.py` additionally needs
+`rembg`, which downloads a segmentation model on first use; install it deliberately. Image
+generation needs no package, only a configured key.
 
 ## Non-Negotiable Delivery Rules
 
@@ -156,17 +197,29 @@ preferences and are never skipped to save time.
 2. **Product appearance, packaging text, people's faces, and logos are not restyled freely.**
    Retouching is allowed only where it does not change the fact and the client approved it.
 3. **Every asset has a rights state** — image source, portrait release, font licence, brand
-   mark. Unknown rights means the asset is not used in a deliverable.
+   mark, and the terms of any generation service used. Unknown rights means the asset is not
+   used in a deliverable.
 4. **Print and social are different files.** One artwork is never silently reused across
    channels; read the carrier-specific rules in
    `references/formats-and-sizes.md`.
 5. **Run the delivery check, do not eyeball it.**
    `python3 "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"`
-   verifies dimensions, colour mode, file integrity, and QR readability where a code is
-   present. Report its output; do not claim checks that were not run.
-6. **Font licensing and embedding.** A font that cannot be embedded or licensed for the use
-   must be replaced before delivery; a missing font on the client's machine is not an
-   acceptable excuse.
+   verifies dimensions, colour mode, file integrity, dpi, PSD structure, SVG outlining, and
+   QR readability where a code is present. Report its output; do not claim checks that were
+   not run.
+6. **A PSD that opens is not a PSD that is correct.**
+   `python3 "${SKILL_DIR}/scripts/check_psd.py" "<file.psd>" --expect-dpi 300 --compare "<render.png>"`
+   must pass before a layered file is delivered: it has to parse through `psd-tools`, carry
+   readable layer names, report the dpi that was asked for, and composite back to the
+   artwork. See `references/psd-layer-spec.md`.
+7. **Fonts.** A font that cannot be embedded or licensed for the use must be replaced before
+   delivery. A delivery SVG has its text converted to outlines
+   (`scripts/export_svg.py`); an SVG that still carries `<text>` depends on the recipient's
+   machine and the delivery check reports it.
+8. **State the boundary, do not promise past it.** CMYK, bleed, colour proofing and editable
+   text layers are hand-offs, not features. `references/capability-boundaries.md` lists what
+   is produced directly, what is not, and the wording to use in a delivery note. Never call a
+   screen-resolution RGB file print-ready.
 
 ## Repository Compatibility
 

@@ -4,16 +4,26 @@
     python check_delivery.py --project "<project-dir>" [--expect name=WxH ...] [--json]
 
 For every file in the project's exports folder (and any file named by --expect)
-it reports:
+it reports whether the file is actually deliverable:
 
-  * the file opens;
-  * the pixel size, and whether it matches the expected size;
-  * the colour mode (RGB / RGBA / CMYK / L);
-  * for PNG and PSD, that the file is structurally sound;
-  * for PNG, whether a QR code is present and what it decodes to.
+  * it opens;
+  * the pixel size matches the delivery list;
+  * the colour mode fits the carrier;
+  * a PNG used for print carries its dpi (``pHYs``), because a missing one
+    silently means 72 dpi and the wrong physical size;
+  * a PSD is a real layered file — parseable by ``psd_tools``, with readable
+    layer names, the declared dpi, and a composite that matches the render;
+  * an SVG has been outlined, or it is reported as font-dependent;
+  * a QR code that is present decodes.
 
-A QR check is a machine check. It does not replace scanning the printed or
-displayed poster on a real phone at the real viewing distance.
+Everything here is a machine check. It never replaces scanning the printed or
+displayed poster on a real phone, at the real distance, at the real brightness.
+
+A note on why this file is strict: v1.0.0 shipped a layered PSD whose channel
+lengths were two bytes short. Photoshop-replacement readers refused it, yet this
+checker reported "PSD readable, 10 layers" and passed it. A check that reports a
+broken file as delivered is worse than no check, so the PSD path now delegates
+to ``check_psd.py``, which fails on structure rather than on existence.
 """
 
 from __future__ import annotations
@@ -28,9 +38,16 @@ try:
 except ImportError:
     sys.exit("缺少依赖：Pillow。请先运行 pip install -r requirements.txt")
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 OK = "PASS"
 WARN = "WARN"
 FAIL = "FAIL"
+
+# A QR-shaped detection covering more than this fraction of the frame is not a
+# code; it is OpenCV latching onto layout lines. That false positive cost a real
+# run ten detection attempts and a full re-layout of the preview width.
+QR_BOX_AREA_LIMIT = 0.35
 
 
 class Report:
@@ -51,18 +68,38 @@ class Report:
         return self.errors == 0
 
 
+class PsdAdapter:
+    """Feed check_psd.py's findings into this report, keeping the file name."""
+
+    def __init__(self, path: Path, report: Report) -> None:
+        self.path = path
+        self.report = report
+
+    def add(self, level: str, message: str) -> None:
+        self.report.add(self.path, level, message)
+
+
+def read_delivery(project: Path) -> dict[str, dict]:
+    manifest = project / "delivery.json"
+    if not manifest.exists():
+        return {}
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"delivery.json 解析失败：{error}")
+    table: dict[str, dict] = {}
+    for entry in data.get("files", []):
+        name = entry.get("file")
+        if name:
+            table[name] = entry
+    return table
+
+
 def expected_sizes(project: Path, extra: list[str]) -> dict[str, tuple[int, int]]:
     table: dict[str, tuple[int, int]] = {}
-    manifest = project / "delivery.json"
-    if manifest.exists():
-        try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as error:
-            raise SystemExit(f"delivery.json 解析失败：{error}")
-        for entry in data.get("files", []):
-            name = entry.get("file")
-            if name and entry.get("width") and entry.get("height"):
-                table[name] = (int(entry["width"]), int(entry["height"]))
+    for name, entry in read_delivery(project).items():
+        if entry.get("width") and entry.get("height"):
+            table[name] = (int(entry["width"]), int(entry["height"]))
     for item in extra:
         if "=" not in item:
             raise SystemExit(f"--expect 格式无效：{item}（应为 文件名=宽x高）")
@@ -74,98 +111,202 @@ def expected_sizes(project: Path, extra: list[str]) -> dict[str, tuple[int, int]
     return table
 
 
-def check_png(path: Path, expected: tuple[int, int] | None, report: Report) -> None:
-    with Image.open(path) as image:
-        image.load()
-        size = image.size
-        mode = image.mode
+# --------------------------------------------------------------------------
+# PNG
+
+
+def read_png_dpi(path: Path) -> float | None:
+    """Return the pHYs resolution in dpi, or None when the chunk is absent."""
+    import struct
+
+    with path.open("rb") as handle:
+        if handle.read(8) != b"\x89PNG\r\n\x1a\n":
+            return None
+        while True:
+            header = handle.read(8)
+            if len(header) < 8:
+                return None
+            length = struct.unpack(">I", header[0:4])[0]
+            kind = header[4:8]
+            if kind == b"pHYs":
+                body = handle.read(length)
+                if len(body) >= 9:
+                    x, _y, unit = struct.unpack(">IIB", body[0:9])
+                    if unit == 1:                     # metres
+                        return x * 0.0254
+                return None
+            if kind == b"IEND":
+                return None
+            handle.seek(length + 4, 1)
+
+
+def check_png(path: Path, expected: tuple[int, int] | None, entry: dict, report: Report) -> None:
+    try:
+        with Image.open(path) as image:
+            image.load()
+            size = image.size
+            mode = image.mode
+    except Exception as error:                               # noqa: BLE001
+        report.add(path, FAIL, f"打不开：{error}")
+        return
+
     if expected and size != expected:
         report.add(path, FAIL, f"尺寸 {size[0]}×{size[1]}，期望 {expected[0]}×{expected[1]}")
         return
-    if mode not in ("RGB", "RGBA"):
-        report.add(path, WARN, f"色彩模式为 {mode}（屏幕交付建议 RGB/RGBA，印刷交付按印厂要求转 CMYK）")
+
+    wanted_colour = str(entry.get("colour") or "").upper()
+    if wanted_colour == "CMYK":
+        report.add(path, FAIL, f"交付清单要求 CMYK，但 PNG 只能是 {mode}（RGB 需转 CMYK 或用 PDF/TIFF）")
         return
+    if mode not in ("RGB", "RGBA"):
+        report.add(path, WARN, f"色彩模式 {mode}（屏幕交付建议 RGB/RGBA）")
+        return
+
     report.add(path, OK, f"尺寸 {size[0]}×{size[1]}，模式 {mode}")
+
+    declared_dpi = entry.get("dpi")
+    actual_dpi = read_png_dpi(path)
+    if declared_dpi:
+        declared = float(declared_dpi)
+        if actual_dpi is None:
+            if declared > 72.5:
+                report.add(
+                    path,
+                    FAIL,
+                    f"声明 {declared:g} dpi，但 PNG 没有 pHYs 块"
+                    "→ 所有软件都按 72 dpi 打开，成品物理尺寸会错",
+                )
+            else:
+                report.add(path, OK, f"屏幕件（{declared:g} dpi），无 pHYs 属正常")
+        elif abs(actual_dpi - declared) > 0.6:
+            report.add(path, FAIL, f"pHYs {actual_dpi:.0f} dpi，清单声明 {declared:g}")
+        else:
+            report.add(path, OK, f"dpi {actual_dpi:.0f}（pHYs 已写入）")
+    elif actual_dpi is None and max(size) > 2000:
+        report.add(
+            path,
+            WARN,
+            "没有 pHYs 也没有清单 dpi：若用于印刷请在 delivery.json 里写明 dpi",
+        )
+    elif actual_dpi is not None:
+        report.add(path, OK, f"dpi {actual_dpi:.0f}（pHYs 已写入）")
+
+    if entry.get("bleed_px"):
+        bleed = int(entry["bleed_px"])
+        trim = (int(entry.get("trim_width") or 0), int(entry.get("trim_height") or 0))
+        if trim[0] and trim[1]:
+            want = (trim[0] + 2 * bleed, trim[1] + 2 * bleed)
+            if size != want:
+                report.add(
+                    path, FAIL,
+                    f"含出血尺寸应为 {want[0]}×{want[1]}（成品 {trim[0]}×{trim[1]} + 出血 {bleed}px×2），"
+                    f"实际 {size[0]}×{size[1]}",
+                )
+            else:
+                report.add(path, OK, f"出血核对通过（成品 {trim[0]}×{trim[1]} + {bleed}px×2）")
+    elif str(entry.get("use") or "").find("印刷") >= 0:
+        report.add(path, WARN, "印刷件未声明出血尺寸（delivery.json 可加 bleed_px / trim_width / trim_height）")
+
+
+# --------------------------------------------------------------------------
+# SVG
 
 
 def check_svg(path: Path, expected: tuple[int, int] | None, report: Report) -> None:
+    import re
+
     text = path.read_text(encoding="utf-8", errors="replace")
     if not text.lstrip().startswith("<svg"):
         report.add(path, FAIL, "不是有效的 SVG 文件")
         return
-    import re
-
-    match = re.search(r'<svg[^>]*\bwidth="(\d+)"[^>]*\bheight="(\d+)"', text)
-    if not match:
+    match = re.search(r"<svg[^>]*\bwidth\s*=\s*[\"']?([\d.]+)", text)
+    height_match = re.search(r"<svg[^>]*\bheight\s*=\s*[\"']?([\d.]+)", text)
+    if not match or not height_match:
         report.add(path, WARN, "未读到 width/height，无法核对尺寸")
+    else:
+        size = (int(float(match.group(1))), int(float(height_match.group(1))))
+        if expected and size != expected:
+            report.add(path, FAIL, f"尺寸 {size[0]}×{size[1]}，期望 {expected[0]}×{expected[1]}")
+        else:
+            embedded = text.count("data:image")
+            report.add(path, OK, f"尺寸 {size[0]}×{size[1]}，内嵌位图 {embedded} 处")
+
+    text_elements = len(re.findall(r"<text\b", text))
+    if text_elements:
+        report.add(
+            path,
+            WARN,
+            f"含 {text_elements} 个 <text> 元素：接收方缺字体会错版。"
+            "交付级 SVG 应把文字转成路径（参考 scripts/export_svg.py）",
+        )
+    else:
+        report.add(path, OK, "文字未以 <text> 依赖字体（已转曲或纯图形）")
+
+
+# --------------------------------------------------------------------------
+# PSD
+
+
+def check_psd(path: Path, expected: tuple[int, int] | None, entry: dict, report: Report) -> None:
+    try:
+        import check_psd
+    except ImportError as error:                             # pragma: no cover
+        report.add(path, WARN, f"无法加载 check_psd.py：{error}")
         return
-    size = (int(match.group(1)), int(match.group(2)))
-    if expected and size != expected:
-        report.add(path, FAIL, f"尺寸 {size[0]}×{size[1]}，期望 {expected[0]}×{expected[1]}")
-        return
-    embedded = text.count('href="data:image')
-    report.add(path, OK, f"尺寸 {size[0]}×{size[1]}，内嵌位图 {embedded} 处")
+
+    adapter = PsdAdapter(path, report)
+    wanted_dpi = entry.get("dpi")
+    check_psd.check(
+        path,
+        float(wanted_dpi) if wanted_dpi else None,
+        expected,
+        None,
+        None,
+        adapter,
+    )
 
 
-def check_psd(path: Path, report: Report) -> None:
-    with Image.open(path) as image:
-        image.load()
-        frames = getattr(image, "n_frames", 1)
-        # n_frames is a count on a PSD, not a list.
-        layers = int(frames) if isinstance(frames, int) else len(frames)
-        size = image.size
-    report.add(path, OK, f"PSD 可读取，{size[0]}×{size[1]}，图层 {layers}")
+# --------------------------------------------------------------------------
+# QR
 
 
-def check_other(path: Path, report: Report) -> None:
-    report.add(path, WARN, "未知格式，未做自动检查，请人工核对")
-
-
-def decode_qr(array) -> tuple[str, bool]:
-    """Try hard to read a QR code out of a poster image.
-
-    Returns (payload, detected). ``detected`` means a QR-shaped graphic was
-    found; ``payload`` stays empty when the code is found but cannot be read.
-    Small codes inside a big poster often need an upscale before OpenCV can
-    lock onto them, so the whole frame is tried at three scales and the
-    detected region is retried on its own.
-    """
+def qr_candidate(array, scale: int) -> tuple[str, bool]:
     import cv2
 
     detector = cv2.QRCodeDetector()
-    detected = False
-    for scale in (1, 2, 3):
-        if scale == 1:
-            frame = array
-        else:
-            frame = cv2.resize(array, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-        try:
-            payload, points, _ = detector.detectAndDecode(frame)
-        except cv2.error:
-            payload, points = "", None
-        if payload:
-            return payload, True
-        if points is None:
-            continue
-        detected = True
-        x, y, width, height = cv2.boundingRect(points.reshape(-1, 2))
-        pad = int(0.3 * max(width, height))
-        x0 = max(0, x - pad)
-        y0 = max(0, y - pad)
-        x1 = min(frame.shape[1], x + width + pad)
-        y1 = min(frame.shape[0], y + height + pad)
-        try:
-            payload, _, _ = detector.detectAndDecode(frame[y0:y1, x0:x1])
-        except cv2.error:
-            payload = ""
-        if payload:
-            return payload, True
-    return "", detected
+    frame = array if scale == 1 else cv2.resize(
+        array, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+    )
+    try:
+        payload, points, _ = detector.detectAndDecode(frame)
+    except cv2.error:
+        return "", False
+    if payload:
+        return payload, True
+    if points is None:
+        return "", False
+
+    x, y, width, height = cv2.boundingRect(points.reshape(-1, 2))
+    area_ratio = (width * height) / float(frame.shape[0] * frame.shape[1])
+    if area_ratio > QR_BOX_AREA_LIMIT:
+        # Not a code: a detection box covering a third of the frame is the
+        # detector latching onto layout structure.
+        return "", False
+
+    pad = int(0.3 * max(width, height))
+    x0, y0 = max(0, x - pad), max(0, y - pad)
+    x1 = min(frame.shape[1], x + width + pad)
+    y1 = min(frame.shape[0], y + height + pad)
+    try:
+        payload, _, _ = detector.detectAndDecode(frame[y0:y1, x0:x1])
+    except cv2.error:
+        payload = ""
+    return payload, bool(payload)
 
 
 def check_qr(path: Path, report: Report) -> None:
     try:
-        import cv2
+        import cv2  # noqa: F401
         import numpy as np
     except ImportError:
         report.add(path, WARN, "未安装 OpenCV，跳过二维码检查")
@@ -173,22 +314,29 @@ def check_qr(path: Path, report: Report) -> None:
     try:
         with Image.open(path) as image:
             array = np.array(image.convert("RGB"))
-    except Exception as error:  # pragma: no cover - unreadable file already reported
+    except Exception as error:                               # noqa: BLE001
         report.add(path, WARN, f"二维码检查跳过：{error}")
         return
-    payload, detected = decode_qr(array)
-    if payload:
-        report.add(path, OK, f"二维码可解码：{payload}")
-    elif detected:
-        report.add(path, FAIL, "检测到二维码图形，但无法解码")
-    else:
-        report.add(path, WARN, "未检测到二维码；若成品应含二维码，请人工核对")
+
+    for scale in (1, 2, 3):
+        try:
+            payload, ok = qr_candidate(array, scale)
+        except Exception:                                    # noqa: BLE001
+            continue
+        if ok:
+            report.add(path, OK, f"二维码可解码：{payload}")
+            return
+    report.add(path, WARN, "未检测到二维码；若成品应含二维码，请人工核对")
+
+
+# --------------------------------------------------------------------------
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Poster Master 交付检查")
     parser.add_argument("--project", required=True, help="项目文件夹")
-    parser.add_argument("--expect", action="append", default=[], metavar="文件名=宽x高", help="期望尺寸，可重复")
+    parser.add_argument("--expect", action="append", default=[], metavar="文件名=宽x高",
+                        help="期望尺寸，可重复")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出")
     args = parser.parse_args()
 
@@ -197,12 +345,15 @@ def main() -> None:
         sys.exit(f"项目文件夹不存在：{project}")
 
     report = Report()
+    delivery = read_delivery(project)
     expected = expected_sizes(project, args.expect)
 
     exports = project / "exports"
     candidates: list[Path] = []
     if exports.is_dir():
-        candidates.extend(sorted(p for p in exports.iterdir() if p.is_file() and not p.name.startswith("._")))
+        candidates.extend(
+            sorted(p for p in exports.iterdir() if p.is_file() and not p.name.startswith("._"))
+        )
     for name in expected:
         candidate = project / name
         if candidate.exists() and candidate not in candidates:
@@ -214,25 +365,36 @@ def main() -> None:
     for path in candidates:
         suffix = path.suffix.lower()
         size = expected.get(path.name)
-        if suffix == ".png":
-            check_png(path, size, report)
-            check_qr(path, report)
-        elif suffix == ".jpg" or suffix == ".jpeg":
-            with Image.open(path) as image:
-                size_read = image.size
-            if size and size_read != size:
-                report.add(path, FAIL, f"尺寸 {size_read[0]}×{size_read[1]}，期望 {size[0]}×{size[1]}")
+        entry = delivery.get(path.name, {})
+        try:
+            if suffix == ".png":
+                check_png(path, size, entry, report)
+                check_qr(path, report)
+            elif suffix in (".jpg", ".jpeg"):
+                with Image.open(path) as image:
+                    image.load()
+                    read_size = image.size
+                    mode = image.mode
+                if size and read_size != size:
+                    report.add(path, FAIL, f"尺寸 {read_size[0]}×{read_size[1]}，期望 {size[0]}×{size[1]}")
+                else:
+                    report.add(path, OK, f"尺寸 {read_size[0]}×{read_size[1]}，模式 {mode}（JPEG 无透明通道）")
+                check_qr(path, report)
+            elif suffix == ".svg":
+                check_svg(path, size, report)
+            elif suffix == ".psd":
+                check_psd(path, size, entry, report)
             else:
-                report.add(path, OK, f"尺寸 {size_read[0]}×{size_read[1]}（JPEG 无透明通道）")
-        elif suffix == ".svg":
-            check_svg(path, size, report)
-        elif suffix == ".psd":
-            check_psd(path, report)
-        else:
-            check_other(path, report)
+                report.add(path, WARN, "未知格式，未做自动检查，请人工核对")
+        except Exception as error:                           # noqa: BLE001
+            report.add(path, FAIL, f"检查时出错（文件可能损坏）：{error}")
 
     if args.json:
-        print(json.dumps({"ok": report.passed, "errors": report.errors, "warnings": report.warnings, "results": report.rows}, ensure_ascii=False, indent=2))
+        print(json.dumps(
+            {"ok": report.passed, "errors": report.errors,
+             "warnings": report.warnings, "results": report.rows},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         print("交付检查：" + str(project))
         print("-" * 72)
@@ -248,4 +410,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

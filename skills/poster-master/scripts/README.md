@@ -1,75 +1,146 @@
 # Scripts
 
-Every script runs on the standard library plus the packages in
-[[BT]]../requirements.txt[[BT]]. Nothing here needs a network connection at run time.
+Everything here is optional: the skill works as a written workflow without a single
+script. Run a script only when a route needs its output.
 
-| Script | Purpose | Needs |
+Dependencies are split on purpose. The editor and the scaffolder are **Node standard
+library only** — no `npm install`, no network. The Python scripts need the packages in
+`../requirements.txt`. Image generation needs nothing extra but does need your own API
+key.
+
+| Script | What it does | Needs |
 |---|---|---|
-| [[BT]]new_project.js[[BT]] | Scaffold a poster project from the stage templates | Node 18+ |
-| [[BT]]editor/server.js[[BT]] | The local component editor | Node 18+ |
-| [[BT]]export_psd.py[[BT]] | Write a layered PSD from a manifest | Pillow |
-| [[BT]]check_delivery.py[[BT]] | Automated delivery checks | Pillow, OpenCV (optional) |
-| [[BT]]qr_extract.py[[BT]] | Detect, decode, crop, and regenerate QR codes | OpenCV, numpy, Pillow |
-| [[BT]]cutout.py[[BT]] | Background removal with an edge-quality report | rembg, Pillow |
+| `new_project.js` | Scaffold a poster project from the stage templates | Node 18+ |
+| `editor/server.js` | The local component editor and its export endpoints | Node 18+ |
+| `render_preview.py` | Headless render of a component source to PNG | Pillow, numpy |
+| `export_svg.py` | Component source → SVG with text converted to outlines | Pillow, fontTools |
+| `export_psd.py` | Write a layered PSD: any layer count, real groups, RLE, dpi | Pillow, numpy |
+| `check_psd.py` | Read a PSD back and prove it parses, with names, groups, dpi | Pillow, numpy, psd-tools |
+| `check_delivery.py` | Automated delivery checks over the exports folder | Pillow, psd-tools, OpenCV |
+| `qr_extract.py` | Detect, decode, crop, and regenerate QR codes | OpenCV, numpy, Pillow |
+| `cutout.py` | Background removal with an edge-quality report | rembg, Pillow |
+| `generate_artwork.py` | Generate one artwork asset with your own image model | an API key (see below) |
+| `setup_imagegen.py` | Guided one-time setup and connectivity test for that model | — |
+| `imagegen_config.py` | Shared config resolution for the two scripts above | — |
+| `quick_validate.py` | Validate this package: dead links, placeholders, syntax | — |
 
-## new_project.js
+## Scaffold a project
 
-[[BT]][[BT]][[BT]]bash
-node new_project.js --project "<dir>" --name "<项目名>" --size 1024x1536
-[[BT]][[BT]][[BT]]
+```bash
+node "${SKILL_DIR}/scripts/new_project.js" --project "<project-dir>" --name "<项目名>" --size 1024x1536
+```
 
-Creates the project folder, the six stage documents, the asset ledger, an
-[[BT]]assets/[[BT]] folder, an [[BT]]exports/[[BT]] folder, and an empty component source.
-Existing files are not overwritten unless [[BT]]--force[[BT]] is passed.
+Writes the stage templates, an asset ledger, an `assets/` folder, an `exports/` folder,
+and an empty component source. Existing files are not overwritten unless `--force` is
+passed.
 
-## editor/server.js
+## Editor
 
-[[BT]][[BT]][[BT]]bash
-node editor/server.js --project "<dir>" [--port 41735]
-[[BT]][[BT]][[BT]]
+```bash
+node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>" [--port 41735]
+```
 
-Opens the project in a local editor at [[BT]]http://127.0.0.1:41735/[[BT]]. The server binds to
-the loopback interface only. See [[BT]]../references/editor-source-format.md[[BT]].
+Opens the project at `http://127.0.0.1:41735/`. The server binds to loopback only. Its
+format, element types and limits are in `../references/editor-source-format.md`; its
+PSD export controls are in `../references/psd-layer-spec.md`.
 
-## export_psd.py
+## Render without a browser
 
-[[BT]][[BT]][[BT]]bash
-python export_psd.py manifest.json
-[[BT]][[BT]][[BT]]
+```bash
+python "${SKILL_DIR}/scripts/render_preview.py" --project "<project-dir>" --width 1280
+python "${SKILL_DIR}/scripts/render_preview.py" --source x.poster.json --output a3.png --dpi 300 --width 3508
+```
 
-The manifest lists layers in composition order (background first). The editor calls
-this automatically for its PSD export.
+Use `--dpi` whenever the file is for print: without it the PNG has no `pHYs` chunk and
+every reader opens it at 72 dpi.
 
-## check_delivery.py
+## Export a layered PSD
 
-[[BT]][[BT]][[BT]]bash
-python check_delivery.py --project "<dir>" --expect "海报-v1-print-A2.png=2480x3508"
-[[BT]][[BT]][[BT]]
+```bash
+python "${SKILL_DIR}/scripts/export_psd.py" --project "<project-dir>"
+python "${SKILL_DIR}/scripts/export_psd.py" <manifest.json>
+```
 
-Checks that each export opens, matches the expected pixel size, uses a sane colour
-mode, and — for PNG — whether a QR code is present and decodes. Exit code is
-non-zero when a check fails.
+Or from the editor's export menu, which offers per-group or per-element layers and a dpi
+field. There is no fixed layer limit. Details and the manifest schema:
+`../references/psd-layer-spec.md`.
 
-The machine check does not judge distance legibility, factual accuracy, licences,
-or whether a QR scans on a real phone. Those remain manual.
+## Prove the PSD is correct
 
-## qr_extract.py
+```bash
+python "${SKILL_DIR}/scripts/check_psd.py" "<file.psd>" \
+    --expect-dpi 300 --expect-size 3508x4961 --compare "<render.png>"
+```
 
-[[BT]][[BT]][[BT]]bash
-python qr_extract.py --input 截图.png --output 裁切.png --expect "https://example.com/join"
-python qr_extract.py --generate "https://example.com/join" --output 二维码.png
-[[BT]][[BT]][[BT]]
+Exit code 0 means the file parses through `psd-tools`, the layer names are readable, the
+dpi is the one you asked for, and the layer stack composites back to the render. A PSD
+that only "opens" is not a PSD that is correct.
 
-Always compare the decoded string with the client's stated link. A code that opens
-is not necessarily the code the client meant.
+## Delivery check
 
-## cutout.py
+```bash
+python "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"
+```
 
-[[BT]][[BT]][[BT]]bash
-python cutout.py --input 人物.jpg --output 人物-抠图.png --preview 边缘预览.png
-[[BT]][[BT]][[BT]]
+Per file: does it open, does the size match `delivery.json`, is the colour mode right,
+does a print PNG carry its dpi, is the PSD structurally sound, is the SVG outlined, does
+a QR code decode. Fix what it reports at the owning layer, then re-run it. Never edit the
+output to make it pass.
 
-Produces a transparent PNG and an edge report. It is a first pass: judge the hair
-outline, the gaps between strands, the clothing edge, the halo, and the
-proportions before using the result in a poster.
+## QR codes
 
+```bash
+python "${SKILL_DIR}/scripts/qr_extract.py" decode "<screenshot.png>"
+python "${SKILL_DIR}/scripts/qr_extract.py" generate --url "<confirmed-link>" --output assets/qr.png --size 600
+```
+
+Decode first, compare character by character with the link the client wrote down, and
+only then regenerate. A code that decodes in a file still has to be scanned on a real
+phone at the real distance.
+
+## Cutout
+
+```bash
+python "${SKILL_DIR}/scripts/cutout.py" --input "<photo.png>" --output "<out.png>"
+```
+
+`rembg` downloads a segmentation model (~176 MB) on first use, so this is not a
+runtime-offline script. Treat the result as a first pass, never as a final cutout — see
+`../references/asset-processing.md`.
+
+## Image generation — your own model, your own key
+
+The skill ships no key and calls no service until you configure one.
+
+```bash
+python "${SKILL_DIR}/scripts/setup_imagegen.py"        # 引导式填写，一次即可
+```
+
+It asks for three things, in this order, and explains each one:
+
+1. **base_url** — an OpenAI-compatible endpoint, usually ending in `/v1`.
+2. **api_key** — pasted at a hidden prompt, stored at `~/.poster-master/imagegen.json`.
+3. **model** — an image model that endpoint actually serves; `--list-models` prints them.
+
+Then test it without spending anything:
+
+```bash
+python "${SKILL_DIR}/scripts/setup_imagegen.py" --test
+```
+
+And generate:
+
+```bash
+python "${SKILL_DIR}/scripts/generate_artwork.py" \
+    --prompt "深空中的悬浮岛，扁平矢量，薄荷绿与深青" \
+    --size 1536x1024 --output assets/主视觉.png
+```
+
+`--dry-run` prints the exact request first. Every output gets a `.json` sidecar recording
+model, prompt, size and date, so the asset ledger can cite it. What may and may not be
+generated is not a matter of taste: read `../references/image-generation.md` and
+`../references/asset-processing.md` before generating anything that is a fact.
+
+Environment variables override the config file, which is convenient for CI or for
+switching providers per shell: `POSTER_IMAGEGEN_API_KEY`, `POSTER_IMAGEGEN_BASE_URL`,
+`POSTER_IMAGEGEN_MODEL`.

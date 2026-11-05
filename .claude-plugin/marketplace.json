@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "Poster Master skill — turns a brief into a production-ready poster with an editable source and PNG / SVG / layered PSD delivery",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
@@ -18,6 +18,7 @@
         "path": "skills"
       },
       "description": "Design a poster end to end: copy hierarchy, visual direction, artwork, a component-based editable source, and PNG / SVG / layered PSD delivery. Includes a dependency-free local editor. Install requirements.txt only when the Python scripts are needed.",
+      "version": "1.1.0",
       "author": {
         "name": "Ilovegood123isgad",
         "url": "https://github.com/Ilovegood123isgad"

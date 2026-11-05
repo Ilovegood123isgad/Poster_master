@@ -36,7 +36,7 @@ const MIME = {
 
 const ELEMENT_TYPES = ["image", "rect", "ellipse", "text", "line", "arc"];
 const MAX_ELEMENTS = 200;
-const MAX_BODY = 90 * 1024 * 1024;
+const MAX_BODY = 200 * 1024 * 1024;
 
 function parseArgs(argv) {
   const args = { project: "", port: Number(process.env.POSTER_EDITOR_PORT || 41735), host: "127.0.0.1" };
@@ -159,7 +159,90 @@ async function listAssets(assetsDir) {
   }
 }
 
-async function runPsdExport(projectDir, outputName, layers) {
+let cachedPython = "";
+
+/** Run a command and resolve with its stdout, rejecting on non-zero exit. */
+function runCommand(command, argv, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, argv, { windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    const timer = timeoutMs ? setTimeout(() => {
+      try { child.kill(); } catch { /* already gone */ }
+      reject(new Error(`${command} 超时`));
+    }, timeoutMs) : null;
+    child.stdout.on("data", chunk => { stdout += chunk; });
+    child.stderr.on("data", chunk => { stderr += chunk; });
+    child.on("error", error => {
+      if (timer) clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", code => {
+      if (timer) clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr.trim() || `${command} 退出码 ${code}`));
+    });
+  });
+}
+
+/**
+ * Find a working Python once.
+ *
+ * The old code called "python" and nothing else, so on a machine with only
+ * python3 — or with the Windows Store stub that exits 9009 and prints nothing —
+ * the PSD export failed with an empty error message.
+ */
+async function resolvePython() {
+  if (cachedPython) return cachedPython;
+  const candidates = [
+    process.env.POSTER_EDITOR_PYTHON,
+    process.platform === "win32" ? "python" : "python3",
+    "python3",
+    "python",
+    "py"
+  ].filter(Boolean);
+  const failures = [];
+  for (const candidate of candidates) {
+    try {
+      await runCommand(candidate, ["-c", "print(1)"], 15000);
+      cachedPython = candidate;
+      return candidate;
+    } catch (error) {
+      failures.push(candidate + ": " + error.message);
+    }
+  }
+  throw new Error(
+    "找不到可用的 Python 3，PSD 导出无法执行。请安装 Python 3 后设置环境变量 POSTER_EDITOR_PYTHON=python。" +
+    "（已尝试：" + failures.join("；") + "）"
+  );
+}
+
+const MAX_LAYERS = 400;
+
+/** Turn the editor's layer tree into PNG files plus a manifest tree. */
+async function writeLayerTree(nodes, tempDir, counter, depth) {
+  if (depth > 4) throw new Error("图层组嵌套过深（最多 5 层）");
+  const out = [];
+  for (const node of nodes) {
+    if (!node || typeof node.name !== "string") throw new Error("PSD 图层信息无效");
+    const name = node.name.slice(0, 200);
+    if (Array.isArray(node.children)) {
+      if (!node.children.length) continue;
+      out.push({ name, children: await writeLayerTree(node.children, tempDir, counter, depth + 1) });
+      continue;
+    }
+    if (typeof node.data !== "string") continue;
+    if (counter.value >= MAX_LAYERS) throw new Error("图层数超过 " + MAX_LAYERS + "，请改用「按组件分组」");
+    const decoded = decodeDataUrl(node.data, ["image/png"]);
+    const file = path.join(tempDir, String(counter.value).padStart(4, "0") + ".png");
+    counter.value += 1;
+    await fsp.writeFile(file, decoded.buffer);
+    out.push({ name, path: file, visible: node.visible !== false });
+  }
+  return out;
+}
+
+async function runPsdExport(projectDir, outputName, layers, dpi) {
   const exportsDir = path.join(projectDir, "exports");
   const tempDir = path.join(exportsDir, "._psd_" + crypto.randomUUID());
   await fsp.mkdir(tempDir, { recursive: true });
@@ -169,34 +252,26 @@ async function runPsdExport(projectDir, outputName, layers) {
       const sourceFile = await findSourceFile(projectDir);
       const project = JSON.parse(await fsp.readFile(sourceFile, "utf8"));
       canvas = project.canvas || canvas;
-    } catch (error) {
+    } catch {
       // A source without a canvas falls back to the layer size.
     }
+
+    const tree = await writeLayerTree(layers, tempDir, { value: 0 }, 0);
+    if (!tree.length) throw new Error("没有可写入的图层");
+
     const manifest = {
       width: Number(canvas.width) || 0,
       height: Number(canvas.height) || 0,
+      dpi: Number(dpi) || 300,
+      compression: "rle",
       output: path.join(exportsDir, outputName),
-      layers: []
+      layers: tree
     };
-    const entries = [];
-    for (let index = 0; index < layers.length; index += 1) {
-      const layer = layers[index];
-      if (!layer || typeof layer.name !== "string") throw new Error("PSD 图层信息无效");
-      const decoded = decodeDataUrl(layer.data, ["image/png"]);
-      const file = path.join(tempDir, String(index).padStart(2, "0") + ".png");
-      await fsp.writeFile(file, decoded.buffer);
-      entries.push({ name: layer.name.slice(0, 80), path: file, visible: layer.visible !== false });
-    }
-    manifest.layers = entries;
     const manifestPath = path.join(tempDir, "manifest.json");
     await fsp.writeFile(manifestPath, JSON.stringify(manifest), "utf8");
-    await new Promise((resolve, reject) => {
-      const child = spawn(process.env.POSTER_EDITOR_PYTHON || "python", [PSD_SCRIPT, manifestPath], { windowsHide: true });
-      let stderr = "";
-      child.stderr.on("data", chunk => { stderr += chunk; });
-      child.on("error", reject);
-      child.on("close", code => code === 0 ? resolve() : reject(new Error(stderr || "PSD 导出脚本退出码 " + code)));
-    });
+
+    const python = await resolvePython();
+    await runCommand(python, [PSD_SCRIPT, manifestPath], 15 * 60 * 1000);
   } finally {
     await fsp.rm(tempDir, { recursive: true, force: true });
   }
@@ -274,12 +349,14 @@ async function main() {
 
       if (req.method === "POST" && url.pathname === "/api/export/psd") {
         const body = await readBody(req);
-        if (!Array.isArray(body.layers) || body.layers.length < 1 || body.layers.length > 60) {
-          throw new Error("PSD 图层数量无效");
+        const tree = Array.isArray(body.tree) ? body.tree : body.layers;
+        if (!Array.isArray(tree) || tree.length < 1 || tree.length > MAX_LAYERS) {
+          throw new Error("PSD 图层数量无效（应为 1–" + MAX_LAYERS + " 个顶层图层/组）");
         }
         const output = safeFileName(body.filename, "海报分层版.psd");
-        await runPsdExport(projectDir, output, body.layers);
-        return respond(res, 200, { ok: true, file: output });
+        const dpi = Number(body.dpi) > 0 ? Number(body.dpi) : 300;
+        await runPsdExport(projectDir, output, tree, dpi);
+        return respond(res, 200, { ok: true, file: output, dpi });
       }
 
       if (req.method === "GET" && url.pathname.startsWith("/assets/")) {

@@ -7,7 +7,7 @@
 [中文](README.md) · [Getting started](docs/en/getting-started.md) · [Installation](docs/en/installation.md) · [Docs](docs/en/README.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1f7a5c.svg)](LICENSE)
-[![Skill version](https://img.shields.io/badge/skill-1.0.0-3b82f6.svg)](skills/poster-master/SKILL.md)
+[![Skill version](https://img.shields.io/badge/skill-1.1.0-3b82f6.svg)](skills/poster-master/SKILL.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-marketplace-8a5cf5.svg)](.claude-plugin/marketplace.json)
 
 </div>
@@ -28,7 +28,7 @@ It owns the whole job: it turns a brief into a copy hierarchy, picks a visual di
 readable first draft, iterates with a written record, and delivers PNG / SVG / layered PSD together
 with an **editable component source**.
 
-Four rules carry most of the weight, and each one exists because it was learned from rework:
+Six rules carry most of the weight, and each one exists because it was learned from rework:
 
 1. **Facts are never guessed.** A date, price, venue or sign-up link that was not confirmed stays
    marked as unconfirmed — it never gets a plausible-looking filler value.
@@ -36,7 +36,34 @@ Four rules carry most of the weight, and each one exists because it was learned 
    link the client stated, regenerate a clean code, test it on a real phone.
 3. **Print and social are different files.** One artwork is never silently reused across channels.
 4. **Delivery is checked, not eyeballed.** <code>check_delivery.py</code> verifies dimensions,
-   colour mode, file integrity, and QR readability.
+   colour mode, dpi, file integrity, PSD structure, SVG outlining, and QR readability.
+5. **A PSD that opens is not a PSD that is correct.** <code>check_psd.py</code> reads the file back
+   through <code>psd-tools</code> and proves the layer names are readable, the dpi is right, and
+   the stack composites back to the artwork.
+6. **State the boundary.** CMYK, bleed and proofing are hand-offs, not features — see
+   <code>references/capability-boundaries.md</code>. A screen-resolution RGB file is never called
+   print-ready.
+
+## Use your own image model
+
+The package ships **no API key and calls no service until you configure one**. Run the guided
+setup once:
+
+```bash
+python "<skill dir>/scripts/setup_imagegen.py"
+```
+
+It asks for an OpenAI-compatible base URL (usually ending in `/v1`), your API key (hidden
+prompt), and an image model that endpoint serves. The configuration is stored at
+`~/.poster-master/imagegen.json` — never inside a project folder, never printed in full.
+
+```bash
+python "<skill dir>/scripts/setup_imagegen.py" --test    # connectivity only, no cost
+python "<skill dir>/scripts/generate_artwork.py" --prompt "…" --size 1536x1024 --output assets/hero.png
+```
+
+Every generation writes a sidecar record (model, prompt, size, date) that goes straight into the
+asset ledger.
 
 ## Quick start
 
@@ -48,7 +75,7 @@ Four rules carry most of the weight, and each one exists because it was learned 
 
 ### Codex / any agent (download and use)
 
-1. Download [poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) (about 320 KB).
+1. Download [poster-master-skill-v1.1.0.zip](dist/poster-master-skill-v1.1.0.zip) (about 350 KB).
 2. Unzip it and drop the whole <code>poster-master</code> folder into your skills directory:
    <code>~/.codex/skills/</code>, <code>~/.claude/skills/</code>, or whatever your agent expects.
 3. Check that <code>SKILL.md</code> is present at the root — that file is the entry point for every agent.
@@ -149,8 +176,8 @@ skills/poster-master/
 
 | Way | Link |
 |---|---|
-| GitHub Release | [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip) |
-| Skill archive | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
+| GitHub Release | [poster-master-skill-v1.1.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.1.0/poster-master-skill-v1.1.0.zip) |
+| Skill archive | [dist/poster-master-skill-v1.1.0.zip](dist/poster-master-skill-v1.1.0.zip) |
 | Source | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code plugin | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |
 | Repository | <https://github.com/Ilovegood123isgad/Poster_master> |

@@ -135,3 +135,36 @@ A quick sanity check when no supplier spec exists:
 The number that matters is the **cap height**, not the font size, and it is measured on the
 printed piece, not in the design file.
 
+## Pixel recipes — copy these instead of recalculating
+
+Canvas sizes at 300 dpi, plus the two margins that are easy to get wrong. Every value is
+`mm / 25.4 * 300`, rounded.
+
+| Carrier | Trim px (300 dpi) | 3 mm bleed → canvas | 18 mm safe margin |
+|---|---|---|---|
+| A4 210 × 297 | 2480 × 3508 | 2551 × 3579 | 213 px |
+| A3 297 × 420 | 3508 × 4961 | 3579 × 5031 | 213 px |
+| A2 420 × 594 | 4961 × 7016 | 5031 × 7087 | 213 px |
+| A1 594 × 841 | 7016 × 9933 | 7087 × 10003 | 213 px |
+| 500 × 700 | 5906 × 8268 | 5976 × 8339 | 213 px |
+| 600 × 900 | 7087 × 10630 | 7157 × 10701 | 213 px |
+
+Screen canvases, no dpi needed:
+
+| Context | Pixels | Note |
+|---|---|---|
+| Social 3:4 | 1080 × 1440 | the default for a phone feed |
+| Social 9:16 | 1080 × 1920 | leave room for platform UI |
+| Square | 1080 × 1080 | one focus, must survive a thumbnail |
+| WeChat article header | ~900 × 383 | confirm in the platform's editor |
+
+Three rules that follow from the table:
+
+- **Bleed is added to the canvas, not to the layout.** Set the canvas to the bleed size and
+  keep the trim line and safe area as guides; do not scale the artwork up afterwards.
+- **The safe margin is not one number.** 213 px is 18 mm at 300 dpi and suits A-series
+  posters; a roll-up hides its bottom 100–200 mm under the base, and a grommeted banner
+  loses its corners. Ask for the supplier's template whenever the carrier is not flat paper.
+- **Say which number is which** in `delivery.json`: `width`/`height` are the canvas,
+  `trim_width`/`trim_height` plus `bleed_px` let the delivery check verify the arithmetic.
+

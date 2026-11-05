@@ -25,6 +25,12 @@ const dom = {
   exportBtn: document.getElementById("exportBtn"),
   exportMenu: document.getElementById("exportMenu"),
   zoomLabel: document.getElementById("zoomLabel"),
+  zoomIn: document.getElementById("zoomIn"),
+  zoomOut: document.getElementById("zoomOut"),
+  zoomFit: document.getElementById("zoomFit"),
+  psdGranularity: document.getElementById("psdGranularity"),
+  psdDpi: document.getElementById("psdDpi"),
+  psdNote: document.getElementById("psdNote"),
   stageHint: document.getElementById("stageHint"),
   assetInput: document.getElementById("assetInput"),
   previewOverlay: document.getElementById("previewOverlay"),
@@ -977,14 +983,18 @@ function elementSvg(item) {
   return "";
 }
 
-function buildSvg(elements) {
+function buildSvg(elements, includeBackground = true) {
   const canvas = state.project.canvas;
   const body = elements.filter(item => item.visible !== false).map(elementSvg).join("");
+  const background = includeBackground
+    ? "<rect width=" + canvas.width + " height=" + canvas.height
+      + " fill=" + JSON.stringify(canvas.background || "#ffffff") + "/>"
+    : "";
   return "<svg xmlns=" + JSON.stringify("http://www.w3.org/2000/svg")
-    + " width=" + canvas.width + " height=" + canvas.height
+    + " width=" + JSON.stringify(String(canvas.width))
+    + " height=" + JSON.stringify(String(canvas.height))
     + " viewBox=" + JSON.stringify("0 0 " + canvas.width + " " + canvas.height) + ">"
-    + "<rect width=" + canvas.width + " height=" + canvas.height + " fill=" + JSON.stringify(canvas.background || "#ffffff") + "/>"
-    + body + "</svg>";
+    + background + body + "</svg>";
 }
 
 /* --------------------------------------------------------------- export */
@@ -1035,7 +1045,9 @@ async function exportSvg() {
 
 function rasterize(elements) {
   const canvas = state.project.canvas;
-  const svg = buildSvg(elements);
+  // No background inside a layer: every layer is composited on top of the ones
+  // below it, so an opaque background in each layer hides the whole stack.
+  const svg = buildSvg(elements, false);
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
@@ -1050,19 +1062,102 @@ function rasterize(elements) {
   });
 }
 
-async function exportPsd() {
-  setStatus("正在生成 PSD 图层…");
-  const groups = new Map();
+function layerKey(item) {
+  return groupOf(item) || item.label || item.id;
+}
+
+/** Consecutive runs of the same group, in paint order (bottom to top). */
+function groupRuns() {
+  const runs = [];
   for (const item of visibleElements()) {
-    const name = groupOf(item) || item.label || item.id;
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push(item);
+    const key = layerKey(item);
+    if (runs.length && runs[runs.length - 1].key === key) {
+      runs[runs.length - 1].items.push(item);
+    } else {
+      runs.push({ key, items: [item] });
+    }
   }
-  const layers = [];
-  for (const entry of groups) layers.push({ name: entry[0], data: await rasterize(entry[1]) });
-  const filename = baseName() + "-分层版.psd";
-  const result = await api("/api/export/psd", { layers: layers, filename: filename });
-  setStatus(t("exportPsd") + " · " + result.file, "ok");
+  return runs;
+}
+
+function runLabel(runs, run, index) {
+  const total = runs.filter(other => other.key === run.key).length;
+  if (total === 1) return run.key;
+  const seen = runs.slice(0, index + 1).filter(other => other.key === run.key).length;
+  return run.key + "（段" + seen + "/" + total + "）";
+}
+
+/**
+ * Build the layer tree the server turns into a PSD.
+ *
+ * Array order is paint order (bottom to top), which is the order PSD records
+ * use. A group whose elements are split around another group is emitted as
+ * separate 「段」 layers: merging it into one layer would move elements across
+ * each other and scramble the stack — the defect v1.0.0 shipped.
+ */
+function buildLayerTree(granularity) {
+  const runs = groupRuns();
+  const tree = [];
+  runs.forEach((run, index) => {
+    const name = runLabel(runs, run, index);
+    if (granularity === "element") {
+      const children = run.items.map(item => ({ name: item.label || item.id, elements: [item] }));
+      if (children.length > 1) tree.push({ name, children });
+      else tree.push(children[0]);
+    } else {
+      tree.push({ name, elements: run.items });
+    }
+  });
+  return tree;
+}
+
+function psdLayerCount(tree) {
+  let total = 0;
+  for (const node of tree) {
+    total += node.children ? psdLayerCount(node.children) : 1;
+  }
+  return total;
+}
+
+async function renderTreeNode(node, sink) {
+  if (node.children) {
+    const children = [];
+    for (const child of node.children) children.push(await renderTreeNode(child, sink));
+    return { name: node.name, children };
+  }
+  sink.done += 1;
+  setStatus("正在生成 PSD 图层 " + sink.done + "/" + sink.total + "…");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  return { name: node.name, data: await rasterize(node.elements) };
+}
+
+function updatePsdNote() {
+  if (!dom.psdNote) return;
+  const granularity = (dom.psdGranularity && dom.psdGranularity.value) || "group";
+  const count = psdLayerCount(buildLayerTree(granularity));
+  dom.psdNote.textContent = granularity === "element"
+    ? "将导出 " + count + " 层（每个组件一层，同组自动建文件夹）"
+    : "将导出 " + count + " 层（每组一层）";
+  if (granularity === "element" && count > 120) {
+    dom.psdNote.textContent += " · 层数较多，导出会慢一些";
+  }
+}
+
+async function exportPsd() {
+  const granularity = (dom.psdGranularity && dom.psdGranularity.value) || "group";
+  const dpi = Number(dom.psdDpi && dom.psdDpi.value) || 300;
+  const tree = buildLayerTree(granularity);
+  const total = psdLayerCount(tree);
+  if (!total) throw new Error("没有可见组件，无法导出 PSD");
+  const sink = { done: 0, total };
+
+  setStatus("正在生成 PSD（" + total + " 层）…");
+  const resolved = [];
+  for (const node of tree) resolved.push(await renderTreeNode(node, sink));
+
+  const filename = baseName() + "-分层.psd";
+  const result = await api("/api/export/psd", { tree: resolved, dpi: dpi, filename: filename });
+  setStatus("PSD 已导出 · " + result.file + "（" + total + " 层 · " + dpi + " dpi）", "ok");
 }
 
 function openPreview() {
@@ -1280,12 +1375,14 @@ dom.zoomIn.addEventListener("click", () => setZoom(state.zoom * 1.2));
 dom.zoomOut.addEventListener("click", () => setZoom(state.zoom / 1.2));
 dom.zoomFit.addEventListener("click", fitToStage);
 dom.zoomLabel.addEventListener("click", () => setZoom(1));
+if (dom.psdGranularity) dom.psdGranularity.addEventListener("change", updatePsdNote);
 
 dom.exportBtn.addEventListener("click", event => {
   event.stopPropagation();
   const open = dom.exportMenu.hidden;
   dom.exportMenu.hidden = !open;
   dom.exportBtn.setAttribute("aria-expanded", String(open));
+  if (open) updatePsdNote();
 });
 document.addEventListener("click", event => {
   if (!dom.exportMenu.hidden && !dom.exportMenu.contains(event.target)) {
@@ -1301,6 +1398,7 @@ dom.exportMenu.addEventListener("click", async event => {
   try {
     if (kind === "png1") await exportPng(1);
     else if (kind === "png2") await exportPng(2);
+    else if (kind === "png3") await exportPng(3);
     else if (kind === "svg") await exportSvg();
     else if (kind === "psd") await exportPsd();
   } catch (error) {

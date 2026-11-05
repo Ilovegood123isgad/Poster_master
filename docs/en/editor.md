@@ -83,12 +83,31 @@ never renders half a poster and leaves you guessing.
 
 | Format | Content | Use |
 |---|---|---|
-| PNG | Canvas bitmap | Social, screen, review |
-| SVG | Vector shapes with embedded bitmaps | Continuing in a vector tool |
-| PSD | One layer per group | Designer refinement, print output |
+| PNG 1× / 2× / 3× | Canvas bitmap | Social, screen, review, large print |
+| SVG | Vector shapes with embedded bitmaps | Continuing in a vector tool (the editor's SVG still carries `<text>`; use <code>scripts/export_svg.py</code> for a delivery file) |
+| PSD | One layer per group or per element, with real folders | Designer refinement, print output |
 
-PSD export runs <code>scripts/export_psd.py</code> and needs Python with Pillow. If
-<code>python</code> is not on PATH, set <code>POSTER_EDITOR_PYTHON</code>.
+Two settings in the export menu change the file itself:
+
+- **Layer granularity** — one layer per group when a designer will move regions, one layer per
+  element (grouped into folders) when the client will edit a single object. There is no fixed
+  layer limit, and the menu shows the count before you export.
+- **dpi** — written into the PSD's ResolutionInfo and the PNG's `pHYs`. Use 300 for print, 72
+  for screen. Without it every reader assumes 72 dpi and an A3 opens at 1.2 m.
+
+A group whose elements are split around another group is exported as 「段1/2」「段2/2」. That
+is correct: merging it into one layer would move elements across each other and scramble the
+stack. See <code>references/psd-layer-spec.md</code>.
+
+PSD export runs <code>scripts/export_psd.py</code> and needs Python with Pillow and numpy. If
+<code>python</code> is not on PATH, set <code>POSTER_EDITOR_PYTHON</code>; the server also tries
+<code>python3</code> and <code>py</code>.
+
+Then verify the file rather than trusting that it opens:
+
+```bash
+python "<skill dir>/scripts/check_psd.py" "<project>/exports/x.psd" --expect-dpi 300 --compare "<project>/exports/x.png"
+```
 
 ## Editor vs headless renderer
 
@@ -96,11 +115,13 @@ PSD export runs <code>scripts/export_psd.py</code> and needs Python with Pillow.
 |---|---|---|
 | Purpose | Change a poster | Automate previews and batch renders |
 | Runs in | Browser + Node server | Command line only |
-| Needs | Node 18+ | Python + Pillow |
-| Produces | PNG / SVG / PSD | PNG |
+| Needs | Node 18+ | Python + Pillow + numpy |
+| Produces | PNG / SVG / PSD | PNG (optionally with dpi) |
 
 Both render the same source with the same rules. Use the headless renderer for review and batch
-work; use the editor when a human is changing things.
+work; use the editor when a human is changing things. **Every editor export has a command-line
+equivalent**, because an export that needs a browser click does not exist in CI, on a headless
+host, or inside a sandbox.
 
 ## Safety boundaries
 

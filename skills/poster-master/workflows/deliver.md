@@ -23,26 +23,67 @@ recipes.
 
 ## Step 2 — Produce the files
 
+Every file must be producible **without a browser**. The editor is a convenience, not the
+only route: a delivery that depends on a UI button cannot be repeated in CI, on a headless
+host, or by the next person.
+
 ```bash
-node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>"   # then export from the UI
-python3 "${SKILL_DIR}/scripts/export_psd.py" --project "<project-dir>"    # layered PSD
+# PNG, sized to the carrier, with the dpi written into the file
+python "${SKILL_DIR}/scripts/render_preview.py" --project "<project-dir>" --width 3508 --dpi 300
+
+# SVG for a recipient who needs vector: text converted to outlines
+python "${SKILL_DIR}/scripts/export_svg.py" --project "<project-dir>"
+
+# Layered PSD: per-group or per-element layers, real folders, dpi resource
+python "${SKILL_DIR}/scripts/export_psd.py" --project "<project-dir>"
 ```
+
+Or open the editor and use its export menu, which offers the same three plus the layer
+granularity and the dpi field:
+
+```bash
+node "${SKILL_DIR}/scripts/editor/server.js" --project "<project-dir>"
+```
+
+Choose the layer granularity by what the recipient will do: per group when a designer moves
+regions, per element when they will edit one object. There is no fixed layer count. See
+`references/psd-layer-spec.md`.
 
 Export PNG for every pixel variant, SVG when the recipient needs a scalable file, and PSD
 when the recipient needs to keep editing layers. Name files
 `<project>-<version>-<carrier>.<ext>` so that the delivery list and the folder
 agree.
 
-## Step 3 — Run the delivery check
+Write the sizes and dpi into `delivery.json`, because that is what the check compares
+against:
 
-```bash
-python3 "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"
+```json
+{"files": [{"file": "海报-v1-print-A3.png", "width": 3508, "height": 4961,
+            "colour": "RGB", "dpi": 300, "use": "A3 印刷主文件"}]}
 ```
 
-It reports, per file: pixel dimensions against the expected size, colour mode, file
-integrity, and — where a QR code is detectable in the artwork — whether it decodes. The QR
-check is a machine check, not a substitute for scanning on a real phone at real distance;
-both are recorded.
+If the printer asked for bleed, add `"bleed_px"`, `"trim_width"` and `"trim_height"` and the
+check verifies the arithmetic instead of guessing.
+
+## Step 3 — Prove the layered file, then run the delivery check
+
+```bash
+python "${SKILL_DIR}/scripts/check_psd.py" "<exports/海报-v1-分层.psd>" \
+    --expect-dpi 300 --expect-size 3508x4961 --compare "<exports/海报-v1-print-A3.png>"
+
+python "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"
+```
+
+The PSD check is not optional. It proves the file parses through `psd-tools`, that the
+Chinese layer names are still readable, that the dpi is not silently 72, and that the layer
+stack composites back to the artwork. A PSD that merely opens in Photoshop can still have a
+scrambled stack or unusable layer names.
+
+The delivery check reports, per file: pixel dimensions against the expected size, colour
+mode, file integrity, the PNG's dpi, the PSD's structure and layer names, whether the SVG
+still depends on fonts, and — where a QR code is detectable in the artwork — whether it
+decodes. The QR check is a machine check, not a substitute for scanning on a real phone at
+real distance; both are recorded.
 
 Fix what it reports at the owning layer, then re-run it. Never edit the check output to make
 it pass.
@@ -50,7 +91,8 @@ it pass.
 ## Step 4 — The manual half of the check
 
 The automated check cannot judge these. Confirm each one explicitly and record the result in
-`templates/06-交付检查表.md`:
+`templates/06-交付检查表.md`. The four review gates this closes are in
+`references/compliance-and-delivery.md`; a gate that is "mostly clear" is not clear.
 
 1. **Legibility at distance.** Viewed from the real viewing distance, is the main title the
    first thing read? Is the smallest required text readable?

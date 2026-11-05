@@ -24,3 +24,8 @@ dist/*.zip
 # Client material and generated output never belong in this repository
 测试项目/
 exports/
+
+# …except the shipped example's own deliverables, which a fresh clone needs so
+# the README preview and the delivery-check regression have something to read.
+!skills/poster-master/examples/*/exports/
+!skills/poster-master/examples/*/exports/*

@@ -71,6 +71,26 @@ Rules that are not negotiable at this stage:
   text, product structure, and faces are not regenerated from a text description.
 - Fonts, icons, and images must have a licence state before they enter the direction.
 
+### Decide where the key visual comes from — before stage 4
+
+| Situation | Route |
+|---|---|
+| The client supplied a usable asset | use it; record its rights state |
+| The client supplied something usable after cleanup | process it (`references/asset-processing.md`) |
+| No asset exists and the subject is atmosphere | **generate it** (`references/image-generation.md`) |
+| No asset exists and the subject is a fact | photograph or commission it; do not generate |
+
+Generation needs the user's own key. Check it is configured before promising a generated
+key visual:
+
+```bash
+python "${SKILL_DIR}/scripts/setup_imagegen.py" --status
+```
+
+If it is not configured, say so in one line, offer the two alternatives (supplied asset, or
+a scripted/geometric subject with an explicitly lower quality ceiling), and continue. Do not
+spend an hour hand-coding a subject in Python without the user choosing that.
+
 ⛔ BLOCKING — stage 3 gate: the direction fits the carrier and the audience, and the user
 accepts the keywords and the palette. One direction, not a mood board of five.
 
@@ -82,14 +102,18 @@ genuinely allows it.
 1. Build the component source so the poster stays editable. Use the editor's element types
    from `references/editor-source-format.md`; a component source is the deliverable
    form of the artwork, not an extra.
-2. Check the draft at **actual size and actual viewing distance**, not only zoomed in:
+2. You may build it by hand, by script, or in the editor — all three produce the same
+   artefact. **Never make the editor the only route**: if a browser or a local server is
+   unavailable, keep going with the CLI (`render_preview.py`, `export_svg.py`,
+   `export_psd.py`) and say which path you used.
+3. Check the draft at **actual size and actual viewing distance**, not only zoomed in:
    - is the main title the first thing seen?
    - can the smallest required text be read at that distance?
    - do image, text, and logo collide?
    - does the CTA read as an action?
-3. Record the intent of this version and what it is still testing, in
+4. Record the intent of this version and what it is still testing, in
    `04-初稿说明.md`.
-4. Check the competition: what else is on the same wall, the same feed, the same screen. If the
+5. Check the competition: what else is on the same wall, the same feed, the same screen. If the
    goal is to blend in, a loud poster is the wrong poster.
 
 ## Stage 5 — Iteration

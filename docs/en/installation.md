@@ -16,8 +16,8 @@ The manifest lives in <code>.claude-plugin/marketplace.json</code>; the skill it
 
 ### 2. Codex / any agent: download and unzip
 
-1. Download [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip)
-   (or the in-repo copy at [dist](../../dist/poster-master-skill-v1.0.0.zip)).
+1. Download [poster-master-skill-v1.1.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.1.0/poster-master-skill-v1.1.0.zip)
+   (or the in-repo copy at [dist](../../dist/poster-master-skill-v1.1.0.zip)).
 2. Unzip it; you get a <code>poster-master/</code> folder.
 3. Put that whole folder into your skills directory:
    - Windows: <code>%USERPROFILE%\.codex\skills\</code> or <code>%USERPROFILE%\.claude\skills\</code>
@@ -70,9 +70,33 @@ python "<skill dir>/scripts/quick_validate.py" "<skill dir>"
 | Capability | Needs | Notes |
 |---|---|---|
 | Editor, project scaffolder | Node.js 18+ | Standard library only, zero npm dependencies |
-| Headless rendering, PSD export, delivery checks | Python 3.9+, Pillow | <code>pip install -r requirements.txt</code> |
+| Headless rendering, PSD export, delivery checks | Python 3.9+, Pillow, numpy | <code>pip install -r requirements.txt</code> |
+| PSD structure validation | <code>psd-tools</code> | The delivery check uses it to prove the file opens outside Photoshop |
+| SVG text outlining | <code>fonttools</code> | A delivery SVG must not depend on the recipient's fonts |
 | QR detection and regeneration | numpy, opencv-python | Installed with requirements.txt |
 | Background removal | rembg (optional) | Downloads a segmentation model on first use |
+| Image generation | your own API key | No extra Python package; run <code>python scripts/setup_imagegen.py</code> |
+
+## Image generation (optional)
+
+The package ships no key. To turn generation on, run the guided setup once:
+
+```bash
+python "<skill dir>/scripts/setup_imagegen.py"
+```
+
+It asks for three things, in this order: the OpenAI-compatible base URL (usually ending in
+`/v1`), your API key (hidden prompt), and an image model that endpoint serves. The
+configuration lives at `~/.poster-master/imagegen.json` and is never written into a project
+folder.
+
+```bash
+python "<skill dir>/scripts/setup_imagegen.py" --test     # connectivity only, no cost
+python "<skill dir>/scripts/setup_imagegen.py" --clear    # forget the stored settings
+```
+
+Environment variables override the file: `POSTER_IMAGEGEN_API_KEY`,
+`POSTER_IMAGEGEN_BASE_URL`, `POSTER_IMAGEGEN_MODEL`.
 
 ## Environment variables
 

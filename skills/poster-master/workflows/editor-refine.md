@@ -32,7 +32,22 @@ of rendering a broken canvas.
 | Canvas | Drag to move, use the handles to scale and rotate. Arrow keys nudge by 1 px, Shift+arrow by 10 px. |
 | Inspector | Edit geometry, colour, typography, opacity, and text. Changes apply immediately. |
 | Preview | Full-bleed preview of the artwork without the editor chrome, for judging the poster as a viewer sees it. |
-| Exports | PNG at 1× or 2×, SVG with the key visual embedded, layered PSD grouped by component group. |
+| Exports | PNG at 1×, 2× or 3×; SVG with the key visual embedded; layered PSD with a choice of granularity and dpi. |
+
+### The export menu
+
+Two settings there change the file itself, so set them deliberately:
+
+- **分层粒度 (layer granularity)** — 按组件分组 gives one layer per group, which is what a
+  designer needs to move regions. 按单个组件 gives one layer per element, grouped into
+  folders, for when the client will edit one object. There is no fixed layer limit; the
+  menu shows the exact count before you export.
+- **dpi** — written into the PSD's ResolutionInfo and into the PNG's `pHYs`. Without it
+  every reader assumes 72 dpi and an A3 opens at 1.2 m. Use 300 for print, 72 for screen.
+
+A group whose elements are split around another group is exported as separate 「段」 layers.
+That is correct, not a bug: merging it into one layer would move elements across each other
+and scramble the stack. See `references/psd-layer-spec.md`.
 
 ## Step 4 — Rules while editing
 
@@ -50,6 +65,14 @@ of rendering a broken canvas.
 
 ## Step 5 — Export and hand off
 
-Export PNG, SVG, and PSD from the editor, then run the delivery check from
-`deliver.md`. Record which component source version produced the delivered files.
+Export PNG, SVG, and PSD from the editor, then run the checks from `deliver.md`:
+
+```bash
+python "${SKILL_DIR}/scripts/check_psd.py" "<exports/….psd>" --expect-dpi 300 --compare "<render.png>"
+python "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"
+```
+
+Record which component source version produced the delivered files. If the editor could not
+produce something — a browser-only SVG that still carries `<text>`, for instance — use the
+CLI equivalents (`scripts/export_svg.py`) rather than shipping the weaker file.
 

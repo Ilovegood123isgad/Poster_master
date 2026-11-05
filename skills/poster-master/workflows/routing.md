@@ -21,8 +21,12 @@ already resolve it.
 | "make / design / create a poster about …" | Create a new poster | `new-poster.md` |
 | "quickly mock this up, don't ask me" | Create a new poster — Quick | `new-poster.md` §Quick |
 | "change the headline / swap the photo / fix the layout" | Revise an existing poster | `revise-poster.md` |
-| "open it in the editor, let me tweak the layers" | Refine in the component editor | `editor-refine.md` |
+| "open it in the editor, let me tweak the layers" | the editor **tool**, inside whatever route you are in | `editor-refine.md` |
 | "export / adapt for A4, Xiaohongshu, WeChat / check the delivery" | Adapt, export, and deliver | `deliver.md` |
+
+The editor row is not a top-level route. Starting the editor never abandons Create or Revise;
+it is how stage 4 composition is done, and `editor-refine.md` is its manual. Load it in
+addition to the route you are already following, not instead of it.
 
 ## Route prerequisites
 
