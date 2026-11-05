@@ -145,6 +145,7 @@ skills/poster-master/
 
 | 方式 | 地址 |
 |---|---|
+| GitHub Release | [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip) |
 | 技能包压缩包 | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
 | 源码 | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code 插件 | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |

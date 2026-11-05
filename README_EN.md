@@ -149,6 +149,7 @@ skills/poster-master/
 
 | Way | Link |
 |---|---|
+| GitHub Release | [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip) |
 | Skill archive | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
 | Source | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code plugin | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |

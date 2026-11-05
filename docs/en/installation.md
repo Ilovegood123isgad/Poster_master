@@ -16,7 +16,8 @@ The manifest lives in <code>.claude-plugin/marketplace.json</code>; the skill it
 
 ### 2. Codex / any agent: download and unzip
 
-1. Download [poster-master-skill-v1.0.0.zip](../../dist/poster-master-skill-v1.0.0.zip).
+1. Download [poster-master-skill-v1.0.0.zip](https://github.com/Ilovegood123isgad/Poster_master/releases/download/v1.0.0/poster-master-skill-v1.0.0.zip)
+   (or the in-repo copy at [dist](../../dist/poster-master-skill-v1.0.0.zip)).
 2. Unzip it; you get a <code>poster-master/</code> folder.
 3. Put that whole folder into your skills directory:
    - Windows: <code>%USERPROFILE%\.codex\skills\</code> or <code>%USERPROFILE%\.claude\skills\</code>
