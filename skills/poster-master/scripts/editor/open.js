@@ -52,6 +52,32 @@ function pidFile(project) {
   return path.join(os.tmpdir(), `poster-master-editor-${digest}.pid`);
 }
 
+/**
+ * The last project opened, so `open.js` with no arguments reopens it. That is
+ * what makes a desktop shortcut possible: one target, no path to remember.
+ */
+function lastFile() {
+  return path.join(os.tmpdir(), "poster-master-editor-last.json");
+}
+
+function rememberProject(project) {
+  try {
+    fs.writeFileSync(lastFile(), JSON.stringify({ project, at: new Date().toISOString() }), "utf8");
+  } catch {
+    /* remembering is a convenience; never fail the launch on it */
+  }
+}
+
+function recallProject() {
+  try {
+    const data = JSON.parse(fs.readFileSync(lastFile(), "utf8"));
+    if (data && typeof data.project === "string" && fs.existsSync(data.project)) return data.project;
+  } catch {
+    /* fall through */
+  }
+  return "";
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -157,14 +183,22 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(
-      '用法：node open.js --project "<项目文件夹>" [--port 41735] [--open] [--stop]\n' +
+      '用法：node open.js [--project "<项目文件夹>"] [--port 41735] [--open] [--stop]\n' +
+      "  不给 --project 就重新打开上一次的项目。\n" +
       "  不给 --open 就只打印地址（方便在 DSH 侧边栏浏览器里打开）。"
     );
     return 0;
   }
   if (!args.project) {
-    console.error('缺少 --project。用法：node open.js --project "<项目文件夹>"');
-    return 2;
+    args.project = recallProject();
+    if (!args.project) {
+      console.error(
+        '缺少 --project，而且没有记录过上一次的项目。\n' +
+        '第一次请指明：node open.js --project "<项目文件夹>"'
+      );
+      return 2;
+    }
+    console.log(`（沿用上一次的项目：${args.project}）`);
   }
 
   const project = path.resolve(args.project);
@@ -185,6 +219,7 @@ async function main() {
   const existing = await probe(args.port);
   if (existing && existing.project && existing.project.name === wanted) {
     const url = `http://127.0.0.1:${args.port}/`;
+    rememberProject(project);
     console.log(`编辑器已在运行：${url}`);
     console.log(`  项目：${existing.project.name}（${existing.project.elements.length} 个组件）`);
     if (args.open) launch(url);
@@ -232,9 +267,10 @@ async function main() {
   }
 
   const url = `http://127.0.0.1:${port}/`;
+  rememberProject(project);
   console.log(`编辑器已启动：${url}`);
   console.log(`  项目：${payload.project.name}（${payload.project.elements.length} 个组件）`);
-  console.log(`  停止：node open.js --project "${project}" --stop`);
+  console.log(`  停止：node open.js --stop`);
   if (args.open) launch(url);
   return 0;
 }

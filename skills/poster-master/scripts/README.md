@@ -38,9 +38,13 @@ passed.
 
 ```bash
 node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>"     # 启动或复用，然后打印地址
-node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>" --open   # 顺便用系统浏览器打开
-node "${SKILL_DIR}/scripts/editor/open.js" --project "<project-dir>" --stop   # 停止
+node "${SKILL_DIR}/scripts/editor/open.js"                                # 重新打开上一次的项目
+node "${SKILL_DIR}/scripts/editor/open.js" --open                         # 顺便用系统浏览器打开
+node "${SKILL_DIR}/scripts/editor/open.js" --stop                         # 停止
 ```
+
+`--project` 可以省略：它会记住上一次打开的项目。这样桌面上放一个快捷方式就够了——
+不用记路径，双击就是"起服务并拿到地址"。
 
 **用 `open.js`，不要直接起 `server.js`。** `server.js` 是前台进程，会占住终端；一旦那个窗口
 被关掉，浏览器里就只剩 `ERR_CONNECTION_REFUSED`——这是实际发生过的事故。`open.js` 把服务
