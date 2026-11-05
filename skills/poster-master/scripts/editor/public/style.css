@@ -47,6 +47,12 @@ html, body {
 button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 button { cursor: pointer; }
 
+/* The `hidden` attribute must win over any author `display` rule.
+   `.preview-overlay` sets `display: grid`, which silently beat the attribute and
+   left the preview overlay covering the whole editor — it looked like the editor
+   "did not open" when in fact everything behind it had loaded. */
+[hidden] { display: none !important; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #263041; border: 3px solid transparent; background-clip: content-box; border-radius: 99px; }
