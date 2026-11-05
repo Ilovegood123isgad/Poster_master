@@ -74,7 +74,8 @@ group or pre-rotate the asset.
   "src": "assets/hero.png",
   "x": 0, "y": 240, "w": 1024, "h": 700,
   "angle": 0, "scaleX": 1, "scaleY": 1, "opacity": 1,
-  "resample": "nearest"
+  "resample": "nearest",
+  "fit": "cover"
 }
 ```
 
@@ -84,6 +85,17 @@ folder stays portable.
 
 `resample` is optional and defaults to `lanczos`. Set it to `"nearest"` for pixel-art
 assets such as QR codes, where smoothing would blur the modules and break the code.
+
+`fit` is optional and defaults to `"fill"`:
+
+| Value | Behaviour | Use for |
+|---|---|---|
+| `fill` | stretches to the box and distorts | never for a photograph or a logo |
+| `cover` | scales to fill the box, crops the overflow, no distortion | photographs, backgrounds |
+| `contain` | scales to fit inside the box, letterboxes the rest | a whole product or a QR code that must not be cropped |
+
+Stretching a photographed subject changes its proportions, which is a factual error rather
+than a styling choice. Use `cover` unless the asset is genuinely meant to fill the frame.
 
 ### rect
 

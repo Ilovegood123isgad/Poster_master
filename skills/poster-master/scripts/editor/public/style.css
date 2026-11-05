@@ -481,6 +481,15 @@ button { cursor: pointer; }
   border-top: 1px solid var(--line);
   background: var(--bg-soft);
 }
+
+/* Aligning to the canvas: one selection, so the artboard is the reference. */
+.align-bar {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 8px 8px 0;
+}
 .mini-btn {
   height: 26px;
   border: 1px solid var(--line);

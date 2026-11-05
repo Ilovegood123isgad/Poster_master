@@ -40,7 +40,7 @@
             <button data-export="png2">PNG · 2×<span>常规印刷</span></button>
             <button data-export="png3">PNG · 3×<span>A2 / A3 大尺寸</span></button>
             <div class="menu-section">矢量与分层</div>
-            <button data-export="svg">SVG · 矢量<span>文字未转曲，需本机字体</span></button>
+            <button data-export="svg">SVG · 矢量<span>文字已转轮廓，不依赖字体</span></button>
             <button data-export="psd">PSD · 分层<span>按下面的粒度与 dpi 导出</span></button>
             <div class="menu-fields">
               <label class="menu-field">
@@ -72,6 +72,14 @@
           <input type="search" id="layerSearch" placeholder="搜索组件…" autocomplete="off">
         </div>
         <div class="layer-list" id="layerList"></div>
+        <div class="align-bar" id="alignBar">
+          <button class="mini-btn" data-align="left" title="左对齐到画布">⇤</button>
+          <button class="mini-btn" data-align="center-h" title="水平居中">↔</button>
+          <button class="mini-btn" data-align="right" title="右对齐到画布">⇥</button>
+          <button class="mini-btn" data-align="top" title="顶对齐到画布">⇡</button>
+          <button class="mini-btn" data-align="middle-v" title="垂直居中">↕</button>
+          <button class="mini-btn" data-align="bottom" title="底对齐到画布">⇣</button>
+        </div>
         <div class="panel-foot">
           <button class="mini-btn" id="groupUpBtn" title="上移一层">上移</button>
           <button class="mini-btn" id="groupDownBtn" title="下移一层">下移</button>

@@ -130,6 +130,11 @@ function validateProject(value) {
         throw new Error("图片路径非法：" + source);
       }
     }
+    if (item.type === "image" && item.fit !== undefined) {
+      if (!["fill", "cover", "contain"].includes(String(item.fit))) {
+        throw new Error("组件 " + item.id + " 的 fit 只能是 fill / cover / contain");
+      }
+    }
     if (item.type === "text" && typeof item.text !== "string") {
       throw new Error("文字组件缺少内容：" + item.id);
     }
@@ -339,12 +344,32 @@ async function main() {
 
       if (req.method === "POST" && url.pathname === "/api/export/svg") {
         const body = await readBody(req);
-        if (typeof body.svg !== "string" || body.svg.length > 40 * 1024 * 1024 || !body.svg.trimStart().startsWith("<svg")) {
-          throw new Error("SVG 内容无效");
-        }
         const output = path.join(exportsDir, safeFileName(body.filename, "海报导出.svg"));
-        await atomicWrite(output, body.svg);
-        return respond(res, 200, { ok: true, file: path.basename(output), path: output });
+        const label = path.basename(output);
+
+        // The browser can build an SVG, but it writes text as <text>, which means
+        // the file depends on the recipient having the same fonts. So the export
+        // is produced by export_svg.py, which converts glyphs to paths. The client
+        // sends the current in-memory project, so unsaved edits are included —
+        // the file matches what is on screen, not what is on disk.
+        const project = body.project ? validateProject(body.project) : null;
+        if (!project) throw new Error("SVG 导出需要当前的组件源稿（project）");
+
+        const tempSource = path.join(projectDir, ".export-" + crypto.randomUUID() + ".poster.json");
+        await fsp.writeFile(tempSource, JSON.stringify(project, null, 2), "utf8");
+        try {
+          const python = await resolvePython();
+          await runCommand(
+            python,
+            [path.join(SKILL_DIR, "scripts", "export_svg.py"), "--source", tempSource, "--output", output],
+            5 * 60 * 1000
+          );
+        } finally {
+          await fsp.rm(tempSource, { force: true });
+        }
+
+        const svg = await fsp.readFile(output, "utf8");
+        return respond(res, 200, { ok: true, file: label, path: output, svg });
       }
 
       if (req.method === "POST" && url.pathname === "/api/export/psd") {

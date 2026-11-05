@@ -23,6 +23,8 @@ TESTS = [
     "test_svg_export.py",
     "test_imagegen.py",
     "test_editor_ui.py",
+    "test_editor_svg.py",
+    "test_image_fit.py",
 ]
 
 HERE = Path(__file__).resolve().parent

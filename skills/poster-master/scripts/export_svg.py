@@ -219,8 +219,12 @@ def shape_svg(item: dict, opacity: float, assets: Path) -> str:
         mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                 ".webp": "image/webp"}.get(source.suffix.lower(), "image/png")
         data = base64.b64encode(source.read_bytes()).decode("ascii")
+        # SVG can express the three fits natively: none stretches, slice crops,
+        # meet letterboxes. Same semantics as the renderer and the editor.
+        fit = str(item.get("fit") or "fill").lower()
+        preserve = {"cover": "xMidYMid slice", "contain": "xMidYMid meet"}.get(fit, "none")
         body = (f'<image x="{x:g}" y="{y:g}" width="{width:g}" height="{height:g}"'
-                f' preserveAspectRatio="none" opacity="{opacity:g}"'
+                f' preserveAspectRatio="{preserve}" opacity="{opacity:g}"'
                 f' href="data:{mime};base64,{data}"/>')
         wrapper_open = wrapper_close = ""      # opacity already applied
     else:

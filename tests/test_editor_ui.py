@@ -107,6 +107,16 @@ def main() -> None:
     check(columns is not None and len(columns.group(1).split()) == 3,
           f".layer 的列数与 DOM 子元素数量一致（3 列），实际：{columns.group(1).strip() if columns else '读不到'}")
 
+    # 8. aligning to the canvas, and image fit controls
+    check('id="alignBar"' in html, "有对齐工具条")
+    check(len(re.findall(r'data-align="', html)) == 6, "对齐有 6 个方向")
+    check("function alignSelected" in app, "app.js 有 alignSelected")
+    check("function selectField" in app, "app.js 有 selectField（图片填充方式下拉）")
+    check('selectField("填充方式", "fit"' in app, "图片检查器有 fit 下拉")
+    for value in ("fill", "cover", "contain"):
+        check(f'"{value}"' in app, f"fit 支持 {value}")
+    check("preserveAspectRatio" in app, "SVG 导出按 fit 设置 preserveAspectRatio")
+
     failed = [message for ok, message in results if not ok]
     print("-" * 68)
     print(f"结论：{len(results) - len(failed)} 项通过，{len(failed)} 项失败")

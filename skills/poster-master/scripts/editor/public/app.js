@@ -274,7 +274,25 @@ function drawShape(target, item, box) {
       // are scaled with hard pixels so the modules stay readable.
       const nearest = String(item.resample || "").toLowerCase() === "nearest";
       if (nearest) target.imageSmoothingEnabled = false;
-      target.drawImage(image, 0, 0, box.w, box.h);
+      const fit = String(item.fit || "fill").toLowerCase();
+      if (fit === "cover" || fit === "contain") {
+        // Stretching a photograph to the box changes the subject's proportions,
+        // which is a factual error, not a styling choice. cover crops, contain
+        // letterboxes; only the explicit "fill" distorts.
+        const ratio = fit === "cover"
+          ? Math.max(box.w / image.naturalWidth, box.h / image.naturalHeight)
+          : Math.min(box.w / image.naturalWidth, box.h / image.naturalHeight);
+        const drawWidth = image.naturalWidth * ratio;
+        const drawHeight = image.naturalHeight * ratio;
+        target.save();
+        target.beginPath();
+        target.rect(0, 0, box.w, box.h);
+        target.clip();
+        target.drawImage(image, (box.w - drawWidth) / 2, (box.h - drawHeight) / 2, drawWidth, drawHeight);
+        target.restore();
+      } else {
+        target.drawImage(image, 0, 0, box.w, box.h);
+      }
       if (nearest) target.imageSmoothingEnabled = true;
     } else {
       target.fillStyle = "rgba(91,156,255,0.08)";
@@ -476,6 +494,29 @@ function numberField(label, key, value, options) {
   return wrap;
 }
 
+function selectField(label, key, value, options) {
+  const wrap = el("div", "field");
+  if (label) wrap.append(el("label", "", label));
+  const select = el("select");
+  for (const option of options) {
+    const node = el("option", "", option.label);
+    node.value = option.value;
+    if (String(value) === String(option.value)) node.selected = true;
+    select.append(node);
+  }
+  select.addEventListener("change", () => {
+    const item = selected();
+    if (!item) return;
+    pushHistory();
+    item[key] = select.value;
+    markDirty();
+    render();
+    if (options.some(option => option.relayout)) renderInspector();
+  });
+  wrap.append(select);
+  return wrap;
+}
+
 function textField(label, key, value, options) {
   const settings = options || {};
   const wrap = el("div", "field");
@@ -651,6 +692,11 @@ function renderInspector() {
       row.append(button);
       body.append(row);
       body.append(el("p", "muted", t("replaceHint")));
+      body.append(selectField("填充方式", "fit", item.fit || "fill", [
+        { value: "fill", label: "拉伸填满（会变形）" },
+        { value: "cover", label: "等比裁切（cover，推荐）" },
+        { value: "contain", label: "等比留白（contain）" }
+      ]));
       body.append(textField(t("source"), "src", item.src || ""));
     }));
   }
@@ -793,6 +839,52 @@ function fitToStage() {
   if (available.width <= 0 || available.height <= 0) return;
   const scale = Math.min(available.width / canvas.width, available.height / canvas.height, 1.5);
   setZoom(scale, { autoFit: true });
+}
+
+/* ------------------------------------------------------------------ align */
+
+/**
+ * Align the selected element to the canvas.
+ *
+ * One selection, so the artboard is the only sensible reference. A text element
+ * usually has no height, and centring it by `h = 0` would put its baseline on the
+ * middle line instead of its visual centre — so the block height is derived from
+ * the font size and line count when it is missing.
+ */
+function alignSelected(mode) {
+  const item = selected();
+  if (!item) {
+    setStatus("先选中一个组件，再对齐", "err");
+    return;
+  }
+  const canvas = state.project.canvas;
+  let width = Number(item.w) || 0;
+  let height = Number(item.h) || 0;
+  if (item.type === "text") {
+    const fontSize = Number(item.fontSize) || 24;
+    const lineHeight = Number(item.lineHeight) || 1.2;
+    const lines = Math.max(1, String(item.text || "").split("\n").length);
+    if (!height) height = fontSize * lineHeight * lines;
+  }
+  pushHistory();
+  if (mode === "left") item.x = 0;
+  if (mode === "center-h") item.x = Math.round((canvas.width - width) / 2);
+  if (mode === "right") item.x = Math.round(canvas.width - width);
+  if (mode === "top") item.y = 0;
+  if (mode === "middle-v") item.y = Math.round((canvas.height - height) / 2);
+  if (mode === "bottom") item.y = Math.round(canvas.height - height);
+  markDirty();
+  render();
+  renderInspector();
+  renderLayers();
+}
+
+if (document.getElementById("alignBar")) {
+  document.getElementById("alignBar").addEventListener("click", event => {
+    const button = event.target.closest("button[data-align]");
+    if (!button) return;
+    alignSelected(button.dataset.align);
+  });
 }
 
 /* ------------------------------------------------------------ side panels */
@@ -1010,7 +1102,10 @@ function elementSvg(item) {
   if (item.type === "image") {
     const image = state.images.get(item.src);
     const data = image && image.complete ? imageDataUrl(image) : "";
-    return "<image href=" + JSON.stringify(data) + " x=" + box.x + " y=" + box.y + " width=" + box.w + " height=" + box.h + " " + common + "/>";
+    const fit = String(item.fit || "fill").toLowerCase();
+    const preserve = fit === "cover" ? "xMidYMid slice" : fit === "contain" ? "xMidYMid meet" : "none";
+    return "<image href=" + JSON.stringify(data) + " x=" + box.x + " y=" + box.y + " width=" + box.w + " height=" + box.h
+      + " preserveAspectRatio=" + JSON.stringify(preserve) + " " + common + "/>";
   }
   if (item.type === "rect") {
     return "<rect x=" + box.x + " y=" + box.y + " width=" + box.w + " height=" + box.h + " rx=" + (item.radius || 0)
@@ -1114,11 +1209,20 @@ async function exportPng(scale) {
 }
 
 async function exportSvg() {
-  const svg = buildSvg(state.project.elements);
+  // Outlines are produced server-side by export_svg.py. Building the SVG here
+  // would embed <text>, and a delivered file must not depend on the recipient
+  // having the same fonts.
   const filename = baseName() + ".svg";
-  const result = await api("/api/export/svg", { svg: svg, filename: filename });
-  triggerDownload("data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg), filename);
-  setStatus(t("exportSvg") + " · " + result.file, "ok");
+  setStatus("正在导出 SVG（文字转轮廓）…");
+  const result = await api("/api/export/svg", { project: state.project, filename: filename });
+  if (result.svg) {
+    triggerDownload("data:image/svg+xml;charset=utf-8," + encodeURIComponent(result.svg), filename);
+  }
+  const outlined = (result.svg || "").indexOf("<text") < 0;
+  setStatus(
+    t("exportSvg") + " · " + result.file + (outlined ? "（文字已转轮廓）" : "（警告：仍含 <text>）"),
+    outlined ? "ok" : "err"
+  );
 }
 
 function rasterize(elements) {

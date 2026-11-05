@@ -391,8 +391,25 @@ def draw_shape(canvas: Image.Image, item: dict, assets: Path, scale: float, opac
             resample = Image.NEAREST
         else:
             resample = Image.LANCZOS
+        fit = str(item.get("fit") or "fill").lower()
         with Image.open(source) as photo:
-            tile = photo.convert("RGBA").resize((tile_w, tile_h), resample)
+            picture = photo.convert("RGBA")
+        if fit in ("cover", "contain") and picture.width and picture.height:
+            # cover crops, contain letterboxes. Only "fill" stretches, which changes
+            # a photographed subject's proportions — a fact, not a style choice.
+            ratio = (
+                max(tile_w / picture.width, tile_h / picture.height)
+                if fit == "cover"
+                else min(tile_w / picture.width, tile_h / picture.height)
+            )
+            scaled = picture.resize(
+                (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio))),
+                resample,
+            )
+            tile = Image.new("RGBA", (tile_w, tile_h), (0, 0, 0, 0))
+            tile.paste(scaled, ((tile_w - scaled.width) // 2, (tile_h - scaled.height) // 2))
+        else:
+            tile = picture.resize((tile_w, tile_h), resample)
     else:
         print(f"  警告：未知元素类型 {kind!r}", file=sys.stderr)
         return

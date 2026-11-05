@@ -171,14 +171,16 @@ class Validator:
         if not scripts.is_dir():
             return
         for path in sorted(scripts.glob("*.py")):
-            completed = subprocess.run(
-                [sys.executable, "-m", "py_compile", str(path)],
-                capture_output=True, text=True,
-            )
-            if completed.returncode != 0:
-                self.error(f"{path.name} 语法错误：{completed.stderr.strip().splitlines()[-1:]}")
-            else:
+            # compile() in memory, not py_compile: py_compile writes __pycache__
+            # next to the source, so running the validator would leave build
+            # artefacts inside a package that is about to be shipped.
+            try:
+                compile(path.read_text(encoding="utf-8"), str(path), "exec")
                 self.checked += 1
+            except SyntaxError as error:
+                self.error(f"{path.name} 语法错误：第 {error.lineno} 行 {error.msg}")
+            except OSError as error:
+                self.error(f"{path.name} 读取失败：{error}")
         node = shutil.which("node")
         if node:
             for path in sorted(list(scripts.glob("*.js")) + list(scripts.rglob("*.js"))):
