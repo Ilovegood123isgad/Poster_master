@@ -44,7 +44,7 @@ Poster Master 是一个 **Agent 技能包**，不是又一个海报模板集合�
 
 ### Codex / 任意 Agent（下载即用）
 
-1. 下载 [poster-master-skill-1.0.0.zip](dist/poster-master-skill-1.0.0.zip)（约 320 KB）。
+1. 下载 [poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip)（约 320 KB）。
 2. 解压后把 <code>poster-master</code> 整个目录放进你的技能目录：
    <code>~/.codex/skills/</code>、<code>~/.claude/skills/</code>，或任何 Agent 约定的 skills 目录。
 3. 确认根目录下的 <code>SKILL.md</code> 存在且可读——这是所有 Agent 的入口。
@@ -145,7 +145,7 @@ skills/poster-master/
 
 | 方式 | 地址 |
 |---|---|
-| 技能包压缩包 | [dist/poster-master-skill-1.0.0.zip](dist/poster-master-skill-1.0.0.zip) |
+| 技能包压缩包 | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
 | 源码 | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code 插件 | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |
 | 仓库首页 | <https://github.com/Ilovegood123isgad/Poster_master> |

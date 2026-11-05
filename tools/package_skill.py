@@ -82,7 +82,7 @@ def main() -> None:
         sys.exit(f"找不到技能目录：{skill_dir}")
 
     version = skill_version(skill_dir)
-    output = build_zip(skill_dir, repo / "dist" / f"poster-master-skill-{version}.zip")
+    output = build_zip(skill_dir, repo / "dist" / f"poster-master-skill-v{version}.zip")
     print(f"打包完成：{output}（{output.stat().st_size // 1024} KB，版本 {version}）")
 
 

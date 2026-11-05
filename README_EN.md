@@ -48,7 +48,7 @@ Four rules carry most of the weight, and each one exists because it was learned 
 
 ### Codex / any agent (download and use)
 
-1. Download [poster-master-skill-1.0.0.zip](dist/poster-master-skill-1.0.0.zip) (about 320 KB).
+1. Download [poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) (about 320 KB).
 2. Unzip it and drop the whole <code>poster-master</code> folder into your skills directory:
    <code>~/.codex/skills/</code>, <code>~/.claude/skills/</code>, or whatever your agent expects.
 3. Check that <code>SKILL.md</code> is present at the root — that file is the entry point for every agent.
@@ -149,7 +149,7 @@ skills/poster-master/
 
 | Way | Link |
 |---|---|
-| Skill archive | [dist/poster-master-skill-1.0.0.zip](dist/poster-master-skill-1.0.0.zip) |
+| Skill archive | [dist/poster-master-skill-v1.0.0.zip](dist/poster-master-skill-v1.0.0.zip) |
 | Source | <code>git clone https://github.com/Ilovegood123isgad/Poster_master.git</code> |
 | Claude Code plugin | <code>/plugin marketplace add Ilovegood123isgad/Poster_master</code> |
 | Repository | <https://github.com/Ilovegood123isgad/Poster_master> |

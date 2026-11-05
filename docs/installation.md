@@ -15,7 +15,7 @@
 
 ### 2. Codex / 通用 Agent：下载解压
 
-1. 下载 [poster-master-skill-1.0.0.zip](../dist/poster-master-skill-1.0.0.zip)。
+1. 下载 [poster-master-skill-v1.0.0.zip](../dist/poster-master-skill-v1.0.0.zip)。
 2. 解压得到 <code>poster-master/</code> 目录。
 3. 整个目录放进你的 skills 目录：
    - Windows：<code>%USERPROFILE%\.codex\skills\</code> 或 <code>%USERPROFILE%\.claude\skills\</code>
