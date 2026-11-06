@@ -9,7 +9,7 @@ description: >
   social poster / print poster, when they ask for poster size or resolution specs, QR-code and
   asset compliance checks, or when they mention poster-master.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   license: "MIT"
   official_repository: "https://github.com/Ilovegood123isgad/Poster_master"
 ---
@@ -216,12 +216,16 @@ preferences and are never skipped to save time.
    `python3 "${SKILL_DIR}/scripts/check_delivery.py" --project "<project-dir>"`
    verifies dimensions, colour mode, file integrity, dpi, PSD structure, SVG outlining, and
    QR readability where a code is present. Report its output; do not claim checks that were
-   not run.
+   not run. A run that ends with warnings has **not** passed — warnings are the items only a
+   human can settle. An empty `exports/` folder, a PSD with no `reference` in
+   `delivery.json`, and a PSD checked without `psd-tools` are all reported as unverified or
+   failed, never as a pass.
 6. **A PSD that opens is not a PSD that is correct.**
    `python3 "${SKILL_DIR}/scripts/check_psd.py" "<file.psd>" --expect-dpi 300 --compare "<render.png>"`
    must pass before a layered file is delivered: it has to parse through `psd-tools`, carry
    readable layer names, report the dpi that was asked for, and composite back to the
-   artwork. See `references/psd-layer-spec.md`.
+   artwork. Inside `check_delivery.py`, declare `"expect_layers"` and `"reference"` for the
+   PSD entry so the same comparison runs there. See `references/psd-layer-spec.md`.
 7. **Fonts.** A font that cannot be embedded or licensed for the use must be replaced before
    delivery. A delivery SVG has its text converted to outlines
    (`scripts/export_svg.py`); an SVG that still carries `<text>` depends on the recipient's

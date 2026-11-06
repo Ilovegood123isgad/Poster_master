@@ -14,9 +14,10 @@ gate that would have caught it, so it checks structure, not just existence.
 
 Checks, in order of what usually breaks:
 
-1. the file parses at all, through ``psd_tools`` when it is installed — the
-   reference implementation, and the closest thing to Photoshop we can gate on
-   in CI; without it we fall back to a structural parser and say so;
+1. the file parses at all, through ``psd_tools`` — the reference implementation,
+   and the closest thing to Photoshop we can gate on in CI. Without it the check
+   FAILS instead of falling back: a structural parse can read fields but cannot
+   prove a reader will open the file, so "unverified" must not pass as verified;
 2. the declared dpi (a missing ResolutionInfo resource silently means 72);
 3. layer count, group count and every layer name — a Chinese name that comes
    back as "?" means the Unicode ``luni`` block is missing;
@@ -190,18 +191,21 @@ def check(
         report.add(OK, f"dpi {dpi:g}")
 
     if not HAVE_PSD_TOOLS:
+        # Not a soft warning. Without the reference reader there is no way to
+        # prove the file opens outside Photoshop, and v1.1.0 let this path
+        # report 0 failures. "无法验证" must not read as "已验证".
         report.add(
-            WARN,
-            "未安装 psd_tools，跳过严格结构校验"
-            "（pip install psd-tools）；只做结构性解析，无法证明 Photoshop 能打开",
+            FAIL,
+            "未安装 psd_tools，PSD 未验证（pip install psd-tools）"
+            "——结构性解析只能读字段，不能证明 Photoshop 或其他读取器能打开",
         )
         names, count = structural_walk(data)
-        report.add(OK, f"图层记录 {abs(count)} 个")
+        report.add(OK, f"图层记录 {abs(count)} 个（仅供参考，不作为交付依据）")
         broken = [name for name in names if "?" in name]
         if broken:
             report.add(FAIL, f"{len(broken)} 个图层名含 '?'，Unicode luni 块缺失或被降级")
         else:
-            report.add(OK, "图层名可读")
+            report.add(OK, "图层名可读（结构解析）")
         if expect_size:
             height, width = struct.unpack(">II", data[14:22])
             if (width, height) != expect_size:

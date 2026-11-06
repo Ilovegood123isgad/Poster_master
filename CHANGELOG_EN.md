@@ -6,18 +6,65 @@ fix bumps patch. The single source of truth for the version is `metadata.version
 `skills/poster-master/SKILL.md`; `.claude-plugin/marketplace.json` and the archive file
 name must match it, and `tools/check_links.py` enforces that.
 
-## Unreleased
+## v1.1.1 — 2026-11-06
 
-Repository infrastructure and packaging consistency. No change to skill behaviour, so no
-version bump.
+The theme of this release is **stopping the delivery gate from signing off broken files**,
+plus the repository infrastructure carried over from the previous unreleased section.
+
+### Fixed: six classes of false pass in the delivery gate
+
+v1.1.0's checker signed off broken files with "0 failures" and still printed "自动检查通过".
+Each case below was reproduced with a constructed file, then closed:
+
+- **A PSD with an inverted layer stack passed.** `check_delivery.py` hard-coded `expect_layers`
+  and `compare` to `None`, so the layer-count check and the composite comparison inside
+  `check_psd.py` were dead code. Both now come from `delivery.json`; without a `reference` the
+  run reports "layer order unverified" instead of implying it passed.
+- **An indexed (P) print PNG passed.** The colour-mode branch returned immediately after a
+  warning, skipping the dpi and bleed checks below it. It now continues.
+- **An empty `exports/` passed.** It was a warning, so `errors` stayed at 0. It is now a failure:
+  "nothing to check" is not a pass.
+- **A PSD checked without `psd-tools` passed.** The structural fallback reported no failures. It
+  now fails and states "PSD unverified" — cannot verify is not the same as verified.
+- **An entry written as `"exports/海报.png"` silently disabled every check for that file.**
+  `read_delivery` keyed entries by the raw `file` string while lookups used `path.name`, so a
+  path prefix never matched: size, colour, dpi and layer count were all skipped, and the report
+  still said 0 failures. Both spellings are now registered. This was the worst of the six —
+  the output looked like it had checked something.
+- **A delivery list naming a file that is not in `exports/`.** Those entries asserted nothing at
+  all yet reported 0 failures. Now a failure, stating the list and the folder disagree.
+
+Wording changed to match: a run with warnings no longer claims "自动检查通过"; it says there
+are no failures but N unresolved items, which are unverified, not passed.
+
+### Added
+
+- `templates/delivery.template.json`: a delivery-list template showing the correct
+  `expect_layers` / `reference` usage, the all-three-together bleed fields, and the reminder
+  that `file` must match the real name in `exports/`.
+- `tests/test_delivery_gate.py`: one "must FAIL" assertion per broken-file class, plus one
+  "a correct PSD must still PASS" case so the fix cannot degenerate into "everything fails" —
+  14 assertions. Restore the v1.1.0 implementation and 11 of them go red.
+- `tests/run_all.py` now runs it: 8 suites become 9.
+
+### Docs
+
+- `scripts/README.md` documents the `expect_layers` / `reference` fields and states that an empty
+  export folder, a missing dependency, a missing reference and a list that does not match the
+  folder are all failures.
+- `workflows/deliver.md` points at the template and shows the two PSD fields.
+- `SKILL.md` rules 5 and 6 follow: warnings are not a pass, and `check_delivery` needs the same
+  two fields.
+
+### Repository infrastructure (previous unreleased section, shipped with this version)
 
 - **CI**: `.github/workflows/ci.yml` runs on Ubuntu and Windows — package validation, link and
   version consistency, archive consistency, the example regression (rebuild → render → delivery
   check → outlined SVG), and `tests/run_all.py`.
-- **Tests in the repository**: `tests/` now holds five portable suites (PSD round-trip, editor
-  pipeline, rendering, SVG outlining, image generation). All offline, all fast, none of them
-  containing client material. They previously lived outside the repository, where CI could not
-  see them — which is the same as having no gate.
+- **Tests in the repository**: `tests/` holds portable suites (PSD round-trip, delivery gate,
+  editor pipeline, rendering, SVG outlining, image generation). All offline, all fast, none of
+  them containing client material. They previously lived outside the repository, where CI could
+  not see them — which is the same as having no gate.
 - **`tools/check_archive.py`**: verifies that the `dist` archive matches the skill tree. It does
   not rebuild and diff, because a zip stores each entry's modification time and a rebuild always
   produces different bytes.

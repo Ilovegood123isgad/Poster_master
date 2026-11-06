@@ -6,13 +6,40 @@
 技能包版本的真源是 `skills/poster-master/SKILL.md` 的 `metadata.version`；
 `.claude-plugin/marketplace.json` 与压缩包文件名必须与它一致，`tools/check_links.py` 会强制校验。
 
-## 未发布
+## v1.1.1 — 2026-11-06
 
-仓库基础设施与打包一致性，不改变技能包的行为，因此不升版本号。
+这一版的主题是**让交付门禁不再放行坏文件**，并收尾上一轮留下的仓库基础设施。
+
+### 修复：交付门禁的六类假通过
+
+v1.1.0 的检查器会用"0 失败"签发出坏文件，还会打印"自动检查通过"。以下六类均用构造文件复现后堵住：
+
+- **图层顺序颠倒的 PSD 被判通过。** `check_delivery.py` 把 `expect_layers` 与 `compare` 固定传 `None`，于是 `check_psd.py` 里的图层数校验与合成比对成了死代码。现在从 `delivery.json` 读 `expect_layers` 与 `reference` 并透传；未声明 `reference` 时明确报"图层顺序未验证"，不再默认合格。
+- **P 模式印刷 PNG 被判通过。** 色彩模式分支只 WARN 就 `return`，把后面的 dpi 与出血检查整段跳过。现在 WARN 后继续检查。
+- **空 `exports/` 被判通过。** 原来只记一条提示，`errors` 仍为 0。现在判 FAIL——"没有东西可查"不是通过。
+- **没有 `psd-tools` 被判通过。** 原来降级到结构解析并报 0 失败。现在判 FAIL 并写明"PSD 未验证"：无法验证不等于已验证。
+- **清单条目写成 `"exports/海报.png"` 时整条检查静默失效。** `read_delivery` 原样用 `file` 做键，而查找用 `path.name`，前缀一加就匹配不上——尺寸、色彩、dpi、图层数全部跳过，输出仍是 0 失败。现在同时注册纯文件名，两种写法都生效。这一类最危险：报告看上去"检查过了"。
+- **清单声明了 `exports/` 里不存在的文件。** 这些条目一条断言都没执行，却报 0 失败。现在判 FAIL，明确指出"清单与实物不一致"。
+
+同时修正话术：存在提示时不再说"自动检查通过"，改为"没有失败项，但有 N 项提示尚未解决——那是未验证，不是通过"。
+
+### 新增
+
+- `templates/delivery.template.json`：交付清单模板，含 `expect_layers` / `reference` 的正确写法、出血三件套的配套要求，以及"file 必须与 exports 里的真实文件名一致"的提示。
+- `tests/test_delivery_gate.py`：六类坏文件各一条"必须 FAIL"断言，另加一条"正确的 PSD 必须仍然 PASS"，共 14 条断言。把 v1.1.0 的实现放回去，其中 11 条会变红。
+- `tests/run_all.py` 接入该测试，仓库内测试文件从 8 个增加到 9 个。
+
+### 文档
+
+- `scripts/README.md` 补 `delivery.json` 的 `expect_layers` / `reference` 字段表，并写清空目录、缺依赖、缺参考图、清单与实物不一致都算失败。
+- `workflows/deliver.md` 的清单示例改为指向模板，并补上 PSD 的两个必填字段。
+- `SKILL.md` 规则 5、6 同步：有提示不算通过；`check_delivery` 里也要声明 `expect_layers` 与 `reference`。
+
+### 仓库基础设施（原"未发布"段，随本版一起发布）
 
 - **CI**：`.github/workflows/ci.yml` 在 Ubuntu 与 Windows 上跑结构校验、链接与版本一致性、
   压缩包一致性、示例工程回归（重建 → 渲染 → 交付检查 → SVG 转曲）以及 `tests/run_all.py`。
-- **仓库内回归测试**：`tests/` 收进 5 个可移植测试（PSD 往返、编辑器链路、渲染、SVG 转曲、
+- **仓库内回归测试**：`tests/` 收进可移植测试（PSD 往返、交付门禁、编辑器链路、渲染、SVG 转曲、
   生图），全部离线、秒级、不含客户素材。此前测试都在仓库外，CI 看不到，等于没有闸门。
 - **`tools/check_archive.py`**：校验 `dist` 压缩包与技能源码树一致。不用「重建后 `git diff`」，
   因为 zip 记录每个条目的修改时间，重建必然产生不同字节流。

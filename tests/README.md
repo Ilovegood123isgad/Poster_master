@@ -24,10 +24,14 @@ for this directory.
 | File | Covers |
 |---|---|
 | `test_psd_roundtrip.py` | Write a PSD, read it back through `psd-tools`: layer order, layer groups, Chinese names, dpi, and that the stack composites to the intended artwork |
+| `test_delivery_gate.py` | The gate must reject bad files: inverted layer stack (caught by the composite comparison), indexed print PNG with no `pHYs`, empty `exports/`, PSD checked without `psd-tools` — and still pass a correct PSD |
 | `test_editor_psd.py` | Start the real server, POST a layer tree, validate the file that comes out; old `layers` payload still accepted; over-deep nesting refused |
+| `test_editor_svg.py` | The editor's SVG export is outlined: no `<text>`, no font dependency, layout unchanged |
+| `test_editor_ui.py` | Editor markup wiring without a browser — the preview overlay starts hidden (author `display` once beat the `hidden` attribute), layer rows, panel toggles |
 | `test_render.py` | `h = 0` rules are drawn, weight 300 vs 900 resolve to different faces, `--dpi` writes `pHYs`, rotation applies to text, centring lands on the box centre |
 | `test_svg_export.py` | The exported SVG has no `<text>`, has real paths, carries no `font-family` dependency, and matches the canvas |
 | `test_imagegen.py` | Config resolution, key masking, `--dry-run`, a real call against a local stub, wrong-key handling, and that the key never appears in output or in the sidecar |
+| `test_image_fit.py` | `fill` stretches, `cover` crops, `contain` letterboxes — three distinct results on an image |
 
 `run_all.py` runs them in order and summarises.
 

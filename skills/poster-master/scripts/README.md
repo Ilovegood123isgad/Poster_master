@@ -100,6 +100,31 @@ does a print PNG carry its dpi, is the PSD structurally sound, is the SVG outlin
 a QR code decode. Fix what it reports at the owning layer, then re-run it. Never edit the
 output to make it pass.
 
+`delivery.json` drives the checks. Start from `templates/delivery.template.json` and delete
+the entries you are not shipping. `file` may be written either way —
+`"exports/海报.png"` or `"海报.png"` both work (the bare name is what gets matched); what
+matters is that it matches the real file name, because an entry that matches nothing is a
+failure, not a silent skip.
+
+Beyond `file` / `width` / `height` / `dpi` / `colour` / `bleed_px`, two fields are what make
+the PSD gate real rather than decorative:
+
+| Field | Meaning |
+|---|---|
+| `expect_layers` | raster layer count; a mismatch fails |
+| `reference` | project-relative render (e.g. `exports/预览.png`) the composite is compared against |
+
+Without `reference` the layer order cannot be verified, and the check reports that instead
+of passing it silently. Four other cases are failures, not warnings: an empty `exports/`
+folder ("nothing to check" is not a pass), a `reference` path that does not exist, a
+delivery list naming files that are not in `exports/`, and a missing `psd-tools` — a
+structural parse can read fields but cannot prove a reader will open the file, so
+"unverified" never counts as verified.
+
+A run that ends with warnings has *not* passed. Warnings are things a machine cannot
+settle — an unverified layer order, a QR code to scan on a real phone — and they still
+need a human.
+
 ## QR codes
 
 ```bash

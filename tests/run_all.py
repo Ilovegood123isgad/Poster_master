@@ -18,6 +18,7 @@ from pathlib import Path
 
 TESTS = [
     "test_psd_roundtrip.py",
+    "test_delivery_gate.py",
     "test_editor_psd.py",
     "test_render.py",
     "test_svg_export.py",

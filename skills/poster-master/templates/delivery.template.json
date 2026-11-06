@@ -1,0 +1,40 @@
+{
+  "_readme": [
+    "交付清单模板。复制到项目根目录，改名为 delivery.json，再逐条改成实际导出的文件。",
+    "用法：python scripts/check_delivery.py --project \"<项目目录>\"",
+    "file：相对项目根目录，必须与 exports/ 里的真实文件名逐字一致，否则那一条不会被检查。",
+    "width / height：成品像素尺寸（不含出血）。dpi 只对印刷件有意义，屏幕件写 72 或不写。",
+    "PSD 必须填 expect_layers（栅格图层数，不含图层组）和 reference（参考渲染图，相对项目根）。",
+    "  缺 expect_layers 不校验层数；缺 reference 则图层顺序只能算「未验证」，检查会明确报出来。",
+    "colour 写 CMYK 时 PNG 会直接失败：PNG 只能是 RGB，印刷请交付 RGB 并由印厂转 CMYK。",
+    "出血：需要就同时填 bleed_px + trim_width + trim_height（三者配套），不需要就整组不要填。",
+    "不满意的条目直接删掉：清单只描述你真正要交付的文件，不是越全越好。"
+  ],
+  "schemaVersion": 1,
+  "files": [
+    {
+      "file": "exports/<项目名>-v1-print-A3.png",
+      "width": 3508,
+      "height": 4961,
+      "colour": "RGB",
+      "dpi": 300,
+      "use": "A3 印刷主文件"
+    },
+    {
+      "file": "exports/<项目名>-v1-分层.psd",
+      "width": 3508,
+      "height": 4961,
+      "colour": "RGB",
+      "dpi": 300,
+      "use": "分层可编辑源稿",
+      "expect_layers": 12,
+      "reference": "exports/<项目名>-v1-print-A3.png"
+    },
+    {
+      "file": "exports/<项目名>-v1.svg",
+      "width": 3508,
+      "height": 4961,
+      "use": "矢量交付（文字已转曲）"
+    }
+  ]
+}

@@ -55,15 +55,27 @@ when the recipient needs to keep editing layers. Name files
 agree.
 
 Write the sizes and dpi into `delivery.json`, because that is what the check compares
-against:
+against. Start from `templates/delivery.template.json` and edit it down to the files you are
+actually shipping:
 
 ```json
-{"files": [{"file": "海报-v1-print-A3.png", "width": 3508, "height": 4961,
-            "colour": "RGB", "dpi": 300, "use": "A3 印刷主文件"}]}
+{"files": [
+  {"file": "exports/海报-v1-print-A3.png", "width": 3508, "height": 4961,
+   "colour": "RGB", "dpi": 300, "use": "A3 印刷主文件"},
+  {"file": "exports/海报-v1-分层.psd", "width": 3508, "height": 4961,
+   "colour": "RGB", "dpi": 300, "use": "分层可编辑源稿",
+   "expect_layers": 12, "reference": "exports/海报-v1-print-A3.png"}
+]}
 ```
 
-If the printer asked for bleed, add `"bleed_px"`, `"trim_width"` and `"trim_height"` and the
-check verifies the arithmetic instead of guessing.
+`expect_layers` and `reference` are what make the PSD gate real inside the delivery check:
+the raster layer count is compared, and the composite is diffed against the reference
+render. Leave `reference` out and the check reports the layer order as unverified instead of
+passing it. `file` must match the real file name in `exports/` character for character, or
+that entry is never checked.
+
+If the printer asked for bleed, add `"bleed_px"`, `"trim_width"` and `"trim_height"` — all
+three together — and the check verifies the arithmetic instead of guessing.
 
 ## Step 3 — Prove the layered file, then run the delivery check
 

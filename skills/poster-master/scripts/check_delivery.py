@@ -90,8 +90,16 @@ def read_delivery(project: Path) -> dict[str, dict]:
     table: dict[str, dict] = {}
     for entry in data.get("files", []):
         name = entry.get("file")
-        if name:
-            table[name] = entry
+        if not name:
+            continue
+        table[name] = entry
+        # "exports/海报.png" never matched path.name, so every check for that
+        # entry — size, colour, dpi, layer count — was silently skipped and the
+        # file passed unexamined. Register the bare name as well, so either
+        # spelling drives the checks.
+        base = Path(name).name
+        if base != name:
+            table.setdefault(base, entry)
     return table
 
 
@@ -159,10 +167,17 @@ def check_png(path: Path, expected: tuple[int, int] | None, entry: dict, report:
         report.add(path, FAIL, f"交付清单要求 CMYK，但 PNG 只能是 {mode}（RGB 需转 CMYK 或用 PDF/TIFF）")
         return
     if mode not in ("RGB", "RGBA"):
-        report.add(path, WARN, f"色彩模式 {mode}（屏幕交付建议 RGB/RGBA）")
-        return
-
-    report.add(path, OK, f"尺寸 {size[0]}×{size[1]}，模式 {mode}")
+        # Do not return here. v1.1.0 returned after this warning, which skipped
+        # the dpi and bleed checks below — so an indexed (P) print PNG with no
+        # pHYs block passed with "0 failures". The colour mode is a hint; the
+        # dpi is what makes the file physically the wrong size.
+        report.add(
+            path,
+            WARN,
+            f"色彩模式 {mode}（屏幕交付建议 RGB/RGBA）——继续核对 dpi 与出血",
+        )
+    else:
+        report.add(path, OK, f"尺寸 {size[0]}×{size[1]}，模式 {mode}")
 
     declared_dpi = entry.get("dpi")
     actual_dpi = read_png_dpi(path)
@@ -247,21 +262,60 @@ def check_svg(path: Path, expected: tuple[int, int] | None, report: Report) -> N
 # PSD
 
 
-def check_psd(path: Path, expected: tuple[int, int] | None, entry: dict, report: Report) -> None:
+def check_psd(
+    path: Path,
+    expected: tuple[int, int] | None,
+    entry: dict,
+    report: Report,
+    project: Path | None = None,
+) -> None:
     try:
         import check_psd
-    except ImportError as error:                             # pragma: no cover
-        report.add(path, WARN, f"无法加载 check_psd.py：{error}")
+    except ImportError as error:
+        report.add(path, FAIL, f"无法加载 check_psd.py，PSD 未验证：{error}")
         return
 
     adapter = PsdAdapter(path, report)
     wanted_dpi = entry.get("dpi")
+
+    # v1.1.0 passed None for both expect_layers and compare, so check_psd's
+    # composite comparison and layer-count check never ran — a PSD with an
+    # inverted layer stack scored "0 failures". Both now come from the
+    # delivery list.
+    expect_layers: int | None = None
+    raw_layers = entry.get("expect_layers")
+    if raw_layers is not None:
+        try:
+            expect_layers = int(raw_layers)
+        except (TypeError, ValueError):
+            report.add(path, FAIL, f"delivery.json 的 expect_layers 不是整数：{raw_layers!r}")
+
+    reference: Path | None = None
+    raw_reference = entry.get("reference")
+    if raw_reference:
+        candidate = Path(raw_reference)
+        if not candidate.is_absolute():
+            candidate = (project or path.parent) / candidate
+        if candidate.exists():
+            reference = candidate
+        else:
+            report.add(path, FAIL, f"delivery.json 声明的参考图不存在：{raw_reference}")
+    else:
+        # No reference render means the composite cannot be compared, so layer
+        # order is simply unverified. Say that instead of implying it passed.
+        report.add(
+            path,
+            WARN,
+            "delivery.json 未给 PSD 声明 reference 参考图：图层顺序与合成结果未验证"
+            "（填 \"reference\": \"exports/预览.png\" 可让门禁真正比对）",
+        )
+
     check_psd.check(
         path,
         float(wanted_dpi) if wanted_dpi else None,
         expected,
-        None,
-        None,
+        expect_layers,
+        reference,
         adapter,
     )
 
@@ -360,7 +414,29 @@ def main() -> None:
             candidates.append(candidate)
 
     if not candidates:
-        report.add(exports, WARN, "没有找到待检查的导出文件")
+        # An empty exports folder is not "nothing to worry about": it means the
+        # delivery cannot be proven at all. v1.1.0 reported a warning here and
+        # then still printed "自动检查通过".
+        report.add(
+            exports,
+            FAIL,
+            "没有找到待检查的导出文件：交付前 exports/ 必须至少有一个成品，否则无法证明可交付",
+        )
+
+    # A delivery list that names files nobody exported must not pass: those
+    # entries were never checked, so "0 failures" would be a statement about an
+    # empty set of assertions rather than about the artwork.
+    present = {p.name for p in candidates}
+    missing = sorted({Path(name).name for name in delivery if Path(name).name not in present})
+    if missing:
+        more = "…" if len(missing) > 5 else ""
+        report.add(
+            project / "delivery.json",
+            FAIL,
+            f"清单声明了 {len(missing)} 个文件但 exports/ 里找不到："
+            f"{'、'.join(missing[:5])}{more}"
+            "——文件名或路径不一致，这些条目根本没有被检查",
+        )
 
     for path in candidates:
         suffix = path.suffix.lower()
@@ -383,7 +459,7 @@ def main() -> None:
             elif suffix == ".svg":
                 check_svg(path, size, report)
             elif suffix == ".psd":
-                check_psd(path, size, entry, report)
+                check_psd(path, size, entry, report, project)
             else:
                 report.add(path, WARN, "未知格式，未做自动检查，请人工核对")
         except Exception as error:                           # noqa: BLE001
@@ -402,8 +478,18 @@ def main() -> None:
             print(f"[{row['status']}] {Path(row['file']).name}  {row['message']}")
         print("-" * 72)
         print(f"结论：{report.errors} 项失败，{report.warnings} 项提示。")
-        if report.passed:
-            print("自动检查通过。仍需人工确认：实际距离可读性、文案事实、二维码真机扫描、字体与图片授权。")
+        if report.errors:
+            print("自动检查未通过：先修失败项，再谈交付。")
+        elif report.warnings:
+            print(
+                f"自动检查没有失败项，但有 {report.warnings} 项提示尚未解决——"
+                "那是「未验证」，不是「通过」。"
+            )
+        else:
+            print(
+                "自动检查全部通过。仍需人工确认：实际距离可读性、文案事实、"
+                "二维码真机扫描、字体与图片授权。"
+            )
 
     sys.exit(0 if report.passed else 1)
 
